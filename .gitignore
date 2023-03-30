@@ -36,3 +36,5 @@ third_party/
 libs/
 objs/
 bin/
+build/
+projects/
