@@ -1,0 +1,48 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33516.290
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DBSvr", "..\projects\Mir3\Server\DBSvr\DBSvr.vcxproj", "{211B0031-6EA0-4AEB-841F-7DD4DA0FB420}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LoginSvr", "..\projects\Mir3\Server\LoginServer\LoginSvr.vcxproj", "{5588BC3A-5412-482A-BF47-667A9836CC44}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "_Oranze Library", "..\projects\Mir3\Server\_Oranze Library\_Oranze Library.vcxproj", "{C52193E4-3350-4948-815D-324224F82F26}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{211B0031-6EA0-4AEB-841F-7DD4DA0FB420}.Debug|x64.ActiveCfg = Debug|x64
+		{211B0031-6EA0-4AEB-841F-7DD4DA0FB420}.Debug|x64.Build.0 = Debug|x64
+		{211B0031-6EA0-4AEB-841F-7DD4DA0FB420}.Debug|x86.ActiveCfg = Debug|Win32
+		{211B0031-6EA0-4AEB-841F-7DD4DA0FB420}.Debug|x86.Build.0 = Debug|Win32
+		{211B0031-6EA0-4AEB-841F-7DD4DA0FB420}.Release|x64.ActiveCfg = Release|x64
+		{211B0031-6EA0-4AEB-841F-7DD4DA0FB420}.Release|x64.Build.0 = Release|x64
+		{211B0031-6EA0-4AEB-841F-7DD4DA0FB420}.Release|x86.ActiveCfg = Release|Win32
+		{211B0031-6EA0-4AEB-841F-7DD4DA0FB420}.Release|x86.Build.0 = Release|Win32
+		{5588BC3A-5412-482A-BF47-667A9836CC44}.Debug|x64.ActiveCfg = Debug|x64
+		{5588BC3A-5412-482A-BF47-667A9836CC44}.Debug|x64.Build.0 = Debug|x64
+		{5588BC3A-5412-482A-BF47-667A9836CC44}.Debug|x86.ActiveCfg = Debug|Win32
+		{5588BC3A-5412-482A-BF47-667A9836CC44}.Debug|x86.Build.0 = Debug|Win32
+		{5588BC3A-5412-482A-BF47-667A9836CC44}.Release|x64.ActiveCfg = Release|x64
+		{5588BC3A-5412-482A-BF47-667A9836CC44}.Release|x64.Build.0 = Release|x64
+		{5588BC3A-5412-482A-BF47-667A9836CC44}.Release|x86.ActiveCfg = Release|Win32
+		{5588BC3A-5412-482A-BF47-667A9836CC44}.Release|x86.Build.0 = Release|Win32
+		{C52193E4-3350-4948-815D-324224F82F26}.Debug|x64.ActiveCfg = Debug|Win32
+		{C52193E4-3350-4948-815D-324224F82F26}.Debug|x64.Build.0 = Debug|Win32
+		{C52193E4-3350-4948-815D-324224F82F26}.Debug|x86.ActiveCfg = Debug|Win32
+		{C52193E4-3350-4948-815D-324224F82F26}.Debug|x86.Build.0 = Debug|Win32
+		{C52193E4-3350-4948-815D-324224F82F26}.Release|x64.ActiveCfg = Release|Win32
+		{C52193E4-3350-4948-815D-324224F82F26}.Release|x64.Build.0 = Release|Win32
+		{C52193E4-3350-4948-815D-324224F82F26}.Release|x86.ActiveCfg = Release|Win32
+		{C52193E4-3350-4948-815D-324224F82F26}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
