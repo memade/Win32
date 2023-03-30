@@ -33,3 +33,6 @@
 
 .vs/
 third_party/
+libs/
+objs/
+bin/
