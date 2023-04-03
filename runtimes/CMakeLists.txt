@@ -40,12 +40,14 @@ foreach(entry ${entries})
 	if(IS_DIRECTORY ${entry})
 		get_filename_component(origin_entry_name "${entry}" NAME)
 		
-		string(COMPARE EQUAL ${origin_entry_name} "openssl" result)
-		if(NOT result)
+		string(COMPARE EQUAL ${origin_entry_name} "cef" result_cef)
+		
+		string(COMPARE EQUAL ${origin_entry_name} "openssl" result_openssl)
+		if(NOT result_openssl AND NOT result_cef)
 		install_sub_project(${entry} ${origin_entry_name})
 		
 		if(${origin_entry_name} STREQUAL "openssl")
-		
+		elseif(${origin_entry_name} STREQUAL "cef")
 		elseif(${origin_entry_name} STREQUAL "win")
 			target_include_directories(${origin_entry_name} 
 			PRIVATE 
@@ -68,7 +70,7 @@ foreach(entry ${entries})
 			)
 		endif()
 		set_target_properties(${origin_entry_name} PROPERTIES FOLDER "runtimes")
-		endif(NOT result)
+		endif(NOT result_openssl AND NOT result_cef)
 
 		
  endif(IS_DIRECTORY ${entry})

@@ -10,7 +10,8 @@ function(install_sub_project entry_path entry_name)
 		if(MSVC AND ENABLE_MSVC_CRT_MT)
 		set_property(TARGET ${entry_name} PROPERTY
 		MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-		endif()
+		endif(MSVC AND ENABLE_MSVC_CRT_MT)
+		#[[
 		target_include_directories(${entry_name} 
 		PRIVATE 
 		${SOLUTION_INCLUDE_DIR}
@@ -29,7 +30,9 @@ function(install_sub_project entry_path entry_name)
 		${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/lib/
 		${WXLIB_DIR}/
 		${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
+		${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
 		)
+		]]
 endfunction(install_sub_project entry_path entry_name)
 
 
@@ -43,10 +46,72 @@ foreach(entry ${entries})
 		get_filename_component(origin_entry_name "${entry}" NAME)
 
 		install_sub_project(${entry} ${origin_entry_name})
+		
+		if(${origin_entry_name} STREQUAL "imgui_test")
+			target_include_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_INCLUDE_DIR}
+			${SOLUTION_ROOT_DIR}/third_party/
+			${SOLUTION_ROOT_DIR}/third_party/imgui/
+			${SOLUTION_ROOT_DIR}/third_party/glfw/include/
+			${SOLUTION_ROOT_DIR}/third_party/freeglut/include/
+			)
+			target_link_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
+			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
+			)		
+		elseif(${origin_entry_name} STREQUAL "wxwidgets_test")
+			target_include_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_INCLUDE_DIR}
+			${SOLUTION_ROOT_DIR}/third_party/
+			${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/include/
+			${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/include/msvc/
+			)
+			
+			set(WXLIB_DIR ${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/lib/vc_lib/)
+			if(${CMAKE_VS_PLATFORM_NAME} STREQUAL "x64")
+			set(WXLIB_DIR ${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/lib/vc_x64_lib/)
+			endif(${CMAKE_VS_PLATFORM_NAME} STREQUAL "x64")
+			
+			target_link_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/lib/
+			${WXLIB_DIR}/
+			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
+			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
+			)	
+		elseif(${origin_entry_name} STREQUAL "wxmdi")
+		 target_include_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_INCLUDE_DIR}
+			${SOLUTION_ROOT_DIR}/third_party/
+			${SOLUTION_ROOT_DIR}/third_party/imgui/
+			${SOLUTION_ROOT_DIR}/third_party/glfw/include/
+			${SOLUTION_ROOT_DIR}/third_party/freeglut/include/
+			${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/include/
+			${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/include/msvc/
+			)
+			
+			set(WXLIB_DIR ${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/lib/vc_lib/)
+			if(${CMAKE_VS_PLATFORM_NAME} STREQUAL "x64")
+			set(WXLIB_DIR ${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/lib/vc_x64_lib/)
+			endif(${CMAKE_VS_PLATFORM_NAME} STREQUAL "x64")
+			
+			target_link_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/lib/
+			${WXLIB_DIR}/
+			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
+			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
+			)	
+		endif()
+
 			
 		set_target_properties(${origin_entry_name} PROPERTIES FOLDER "tests")
-	 message(STATUS "current filename ${origin_entry_name}") 
-		message(STATUS "current path ${entry}")
+	 #message(STATUS "current filename ${origin_entry_name}") 
+		#message(STATUS "current path ${entry}")
  endif()
 endforeach(entry)
 

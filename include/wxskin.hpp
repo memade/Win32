@@ -123,6 +123,22 @@
 namespace wx {
  using IdentifyTheme = std::string;
 
+ typedef class IwxMDIChildFrame : public wxMDIChildFrame {
+ public:
+  IwxMDIChildFrame(wxMDIParentFrame* parent,
+   wxWindowID id = wxID_ANY,
+   const wxString& title = L"",
+   const wxPoint& pos = wxDefaultPosition,
+   const wxSize& size = wxDefaultSize,
+   long style = wxDEFAULT_FRAME_STYLE,
+   const wxString& name = wxASCII_STR(wxFrameNameStr));
+  virtual ~IwxMDIChildFrame();
+ private:
+  void OnSize(wxSizeEvent& wxEvent);
+  void OnMove(wxMoveEvent& wxEvent);
+  void OnCloseWindow(wxCloseEvent& wxEvent);
+ }IMDIChildFrame;
+
  typedef class IwxMDIParentFrame : public wxMDIParentFrame {
  public:
   IwxMDIParentFrame(wxWindow* parent = nullptr,
@@ -130,13 +146,18 @@ namespace wx {
    const wxString& title = L"",
    const wxPoint& pos = wxDefaultPosition,
    const wxSize& size = wxSize(1024, 768),
-   long style = wxDEFAULT_FRAME_STYLE | wxSUNKEN_BORDER);
+   long style = wxDEFAULT_FRAME_STYLE | wxSUNKEN_BORDER | wxFRAME_NO_WINDOW_MENU);
   virtual ~IwxMDIParentFrame();
+  virtual WXHWND GetHwnd() const;
+  virtual void EnableExitConfirmation(const bool&);
+  virtual wxMDIChildFrame* CreateChildNormal();
+  virtual wxMDIChildFrame* CreateChildImGui();
  protected:
   void OnSize(wxSizeEvent&);
   void OnClose(wxCloseEvent&);
- private:
-  wxDECLARE_EVENT_TABLE();
+ protected:
+  std::vector<wxMDIChildFrame*> m_MDIChildFrames;
+  std::atomic_bool m_EnableExitConfirmation = true;
  }IMDIParentFrame;
 
  class IwxFrame : public wxFrame {
@@ -264,6 +285,7 @@ namespace wx {
   virtual bool Start();
   virtual void Stop();
   virtual void Release() const;
+  virtual void EnableExitConfirmation(const bool&);
  protected:
   virtual void MainProcess();
   virtual bool NotifyMainCreateEvent();
@@ -271,6 +293,7 @@ namespace wx {
   Theme* m_pTheme1 = nullptr;
   Theme* m_pTheme2 = nullptr;
  protected:
+  std::atomic_bool m_EnableExitConfirmation = true;
   const HINSTANCE m_hInstance = nullptr;
   HWND m_hWnd = nullptr;
   std::atomic_bool m_IsOpenUI = false;

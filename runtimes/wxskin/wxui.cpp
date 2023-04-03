@@ -2,13 +2,17 @@
 
 namespace wx {
  IWxui::IWxui(const HINSTANCE& hinstance) : m_hInstance(hinstance) {
-
+  m_hUIMainCreateEvent = ::CreateEventW(NULL, TRUE, FALSE, NULL);
  }
  IWxui::~IWxui() {
-
+  SK_CLOSE_HANDLE(m_hUIMainCreateEvent);
  }
+
  void IWxui::Release() const {
   delete this;
+ }
+ void IWxui::EnableExitConfirmation(const bool& enable) {
+  m_EnableExitConfirmation.store(enable);
  }
  bool IWxui::Start() {
   do {
@@ -38,10 +42,8 @@ namespace wx {
   do {
    if (!m_IsOpenUI.load())
     break;
-   //::SendMessageW(GlobalWindowConfigGet()->hMain, WM_CLOSE, 0, 0);
-   //::WaitForSingleObject(m_hUIMain, INFINITE);
-   //SK_DELETE_PTR(m_pTheme1);
-   //SK_DELETE_PTR(m_pTheme2);
+   ::SendMessageW(m_hWnd, WM_CLOSE, 0, 0);
+   ::WaitForSingleObject(m_hUIMain, INFINITE);
    m_IsOpenUI.store(false);
   } while (0);
  }
@@ -58,19 +60,13 @@ namespace wx {
    auto app = wxDynamicCast(wxApp::GetInstance(), IwxApp);
    app->RegisterAppCreateFrameEventCb(
     [&](wxFrame* frame) {
-     frame->SetSize(100, 100);
-     m_pTheme1 = new wx::Theme("0", R"(C:\Users\k34ub\Desktop\theme\2\shape.png)", R"(C:\Users\k34ub\Desktop\theme\2\bgk.png)");
-     m_pTheme2 = new wx::Theme("1", R"(C:\Users\k34ub\Desktop\theme\GodOfWealth.png)", R"(C:\Users\k34ub\Desktop\theme\GodOfWealth.png)");
-
-     auto theFrame = wxDynamicCast(frame, wx::IwxFrameSkin);
-     theFrame->AppendTheme(m_pTheme1);
-     theFrame->AppendTheme(m_pTheme2);
-     theFrame->SetTheme();
-     theFrame->Center();
-     //frame->SetBackgroundColour(wxColour(RGB(0, 0, 0)));
+     auto mdiFrameWnd = wxDynamicCast(frame, IwxMDIParentFrame);
+     mdiFrameWnd->EnableExitConfirmation(m_EnableExitConfirmation.load());
+     m_hWnd = mdiFrameWnd->GetHwnd();
+     mdiFrameWnd->Center();
      NotifyMainCreateEvent();
     });
-   auto frame = new wx::IwxFrameSkin(nullptr);
+   auto frame = new wx::IwxMDIParentFrame(nullptr);
    wxThreadEvent* event = new wxThreadEvent(wxEVT_THREAD, wx::WX_CMD_ONAPPCREATEFRAME);
    event->SetEventObject(frame);
    event->SetString("Hello wxWidgets!");
@@ -86,8 +82,7 @@ namespace wx {
     break;
    if (FALSE == ::SetEvent(m_hUIMainCreateEvent))
     break;
-   ::CloseHandle(m_hUIMainCreateEvent);
-   m_hUIMainCreateEvent = nullptr;
+   SK_CLOSE_HANDLE(m_hUIMainCreateEvent);
    result = true;
   } while (0);
   return result;

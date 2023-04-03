@@ -15,6 +15,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zlib-1.2.11", "..\third_par
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libzippp", "..\third_party\libzippp\build\libzippp.vcxproj", "{CC0B60F6-440C-4C75-858F-2E006DBD04AB}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "imgui", "..\third_party\imgui\build\imgui.vcxproj", "{2BA99D83-BB36-4B76-9B1A-5505694F17B8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -71,6 +73,14 @@ Global
 		{CC0B60F6-440C-4C75-858F-2E006DBD04AB}.Release|Win32.Build.0 = Release|Win32
 		{CC0B60F6-440C-4C75-858F-2E006DBD04AB}.Release|x64.ActiveCfg = Release|x64
 		{CC0B60F6-440C-4C75-858F-2E006DBD04AB}.Release|x64.Build.0 = Release|x64
+		{2BA99D83-BB36-4B76-9B1A-5505694F17B8}.Debug|Win32.ActiveCfg = Debug|Win32
+		{2BA99D83-BB36-4B76-9B1A-5505694F17B8}.Debug|Win32.Build.0 = Debug|Win32
+		{2BA99D83-BB36-4B76-9B1A-5505694F17B8}.Debug|x64.ActiveCfg = Debug|x64
+		{2BA99D83-BB36-4B76-9B1A-5505694F17B8}.Debug|x64.Build.0 = Debug|x64
+		{2BA99D83-BB36-4B76-9B1A-5505694F17B8}.Release|Win32.ActiveCfg = Release|Win32
+		{2BA99D83-BB36-4B76-9B1A-5505694F17B8}.Release|Win32.Build.0 = Release|Win32
+		{2BA99D83-BB36-4B76-9B1A-5505694F17B8}.Release|x64.ActiveCfg = Release|x64
+		{2BA99D83-BB36-4B76-9B1A-5505694F17B8}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
