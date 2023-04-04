@@ -27,6 +27,7 @@ namespace wx {
    wxAppBase::SetExitOnFrameDelete(false);
    wxEvtHandler::Bind(wxEVT_THREAD, &IwxApp::OnDestory, this, WX_CMD_ONAPPDESTORY);
    wxEvtHandler::Bind(wxEVT_THREAD, &IwxApp::OnCreateFrame, this, WX_CMD_ONAPPCREATEFRAME);
+
    result = true;
   } while (0);
   if (m_AppInitEventCb)
@@ -36,7 +37,6 @@ namespace wx {
  int IwxApp::OnExit() {
   int result = 0;
   do {
-
 
    result = wxApp::OnExit();
 
@@ -54,7 +54,7 @@ namespace wx {
    m_pFrame = wxDynamicCast(obj, wxFrame);
   }
   else {
-   m_pFrame = new IMDIParentFrame();
+   m_pFrame = new IwxMDIParentFrame();
   }
   m_pFrame->Show(true);
 

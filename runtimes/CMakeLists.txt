@@ -46,6 +46,11 @@ foreach(entry ${entries})
 		if(NOT result_openssl AND NOT result_cef)
 		install_sub_project(${entry} ${origin_entry_name})
 		
+		set(CEF_INCLUDE_DIR ${SOLUTION_ROOT_DIR}/third_party/cef/109.0.5414.120/x86/)
+		if(${CMAKE_VS_PLATFORM_NAME} STREQUAL "x64")
+		set(CEF_INCLUDE_DIR ${SOLUTION_ROOT_DIR}/third_party/cef/109.0.5414.120/x64/)
+		endif(${CMAKE_VS_PLATFORM_NAME} STREQUAL "x64")
+			
 		if(${origin_entry_name} STREQUAL "openssl")
 		elseif(${origin_entry_name} STREQUAL "cef")
 		elseif(${origin_entry_name} STREQUAL "win")
@@ -54,6 +59,13 @@ foreach(entry ${entries})
 			${SOLUTION_INCLUDE_DIR}
 			${SOLUTION_ROOT_DIR}/third_party/
 			)
+		elseif(${origin_entry_name} STREQUAL "cef++")			
+			target_include_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_INCLUDE_DIR}
+			${SOLUTION_ROOT_DIR}/third_party/
+			${CEF_INCLUDE_DIR}/
+			)		
 		elseif(${origin_entry_name} STREQUAL "zip++")
 			target_include_directories(${origin_entry_name} 
 			PRIVATE 
@@ -65,6 +77,8 @@ foreach(entry ${entries})
 			PRIVATE 
 			${SOLUTION_INCLUDE_DIR}
 			${SOLUTION_ROOT_DIR}/third_party/
+			${CEF_INCLUDE_DIR}/
+			${SOLUTION_ROOT_DIR}/third_party/imgui/
 			${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/include/
 			${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/include/msvc/
 			)

@@ -10,11 +10,39 @@ namespace wx {
   long style) :
   wxMDIParentFrame(parent, id, title, pos, size, style) {
 
+  //m_wxAuiManager.SetManagedWindow(this);
+  //m_wxAuiManager.SetFlags(wxAUI_MGR_ALLOW_ACTIVE_PANE | wxAUI_MGR_DEFAULT);
+
+
+#if 0
+  // create a panel to hold the browser window
+  wxPanel* panel = new wxPanel(this);
+  wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
+  panel->SetSizer(sizer);
+  m_wxAuiManager.AddPane(panel, wxAuiPaneInfo().Center().Name(wxT("pane_cef")));
+
+  // initialize CEF
+  CefMainArgs args(::GetModuleHandleW(NULL));
+  CefRefPtr<cef::ICefApp> app(new cef::ICefApp);
+  CefSettings settings;
+  CefInitialize(args, settings,app, NULL);
+
+  // create the browser window
+  CefWindowInfo window_info;
+  const auto panelRect = panel->GetClientRect();
+  window_info.SetAsChild(panel->GetHandle(), CefRect(panelRect.x,panelRect.y,panelRect.width,panelRect.height));
+  CefBrowserSettings browser_settings;
+  //CefRefPtr<cef::ICefClient> client(new cef::ICefClient::GetInstance());
+  CefBrowserHost::CreateBrowser(window_info, cef::ICefClient::GetInstance(), "about:blank", browser_settings, NULL);
+#endif
   //wxMenu* menu = new wxMenu;
   //SetWindowMenu(menu);
 
-  CreateChildNormal();
+  //CreateChildNormal();
 
+  wxMDIChildFrame* result = new IwxMDIChildFrameCef(this);
+  result->Show(true);
+  m_MDIChildFrames.emplace_back(result);
 
   Bind(wxEVT_SIZE, &IwxMDIParentFrame::OnSize, this);
   Bind(wxEVT_CLOSE_WINDOW, &IwxMDIParentFrame::OnClose, this);
@@ -24,6 +52,7 @@ namespace wx {
 
   Unbind(wxEVT_SIZE, &IwxMDIParentFrame::OnSize, this);
   Unbind(wxEVT_CLOSE_WINDOW, &IwxMDIParentFrame::OnClose, this);
+  //CefShutdown();
  }
  wxMDIChildFrame* IwxMDIParentFrame::CreateChildNormal() {
   wxMDIChildFrame* result = new IwxMDIChildFrame(this);

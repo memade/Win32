@@ -1,6 +1,9 @@
 ﻿#if !defined(INC_H___1DF22BD4_2FF6_45C0_B192_ED0140F4AB4A__HEAD__)
 #define INC_H___1DF22BD4_2FF6_45C0_B192_ED0140F4AB4A__HEAD__
 
+#define WX_ENABLE_MODULE_CEF 1
+#define WX_ENABLE_MODULE_IMGUI 1
+
 #pragma warning(disable:4996)
 
 #if !defined(_CRT_SECURE_NO_DEPRECATE)
@@ -63,6 +66,7 @@
 #include "wx/wx.h"
 #include "wx/nativewin.h"
 #include "wx/mdi.h"
+#include "wx/docmdi.h"
 #include "wx/aui/aui.h"
 #include "wx/app.h"
 #include "wx/log.h"
@@ -116,6 +120,14 @@
 #include "wx/dcbuffer.h"
 #include "wx/mstream.h"
 
+#if WX_ENABLE_MODULE_CEF
+#include "imgui.hpp"
+#endif///#if WX_ENABLE_MODULE_CEF
+
+#if WX_ENABLE_MODULE_IMGUI
+#include "cef.hpp"
+#endif///#if WX_ENABLE_MODULE_IMGUI
+
 #ifndef RGB
 #define RGB(r,g,b) ((COLORREF)(((BYTE)(r)|((WORD)((BYTE)(g))<<8))|(((DWORD)(BYTE)(b))<<16)))
 #endif
@@ -123,7 +135,7 @@
 namespace wx {
  using IdentifyTheme = std::string;
 
- typedef class IwxMDIChildFrame : public wxMDIChildFrame {
+ class IwxMDIChildFrame : public wxMDIChildFrame {
  public:
   IwxMDIChildFrame(wxMDIParentFrame* parent,
    wxWindowID id = wxID_ANY,
@@ -137,9 +149,40 @@ namespace wx {
   void OnSize(wxSizeEvent& wxEvent);
   void OnMove(wxMoveEvent& wxEvent);
   void OnCloseWindow(wxCloseEvent& wxEvent);
- }IMDIChildFrame;
+ };
 
- typedef class IwxMDIParentFrame : public wxMDIParentFrame {
+ class IwxMDIChildFrameCef : public wxMDIChildFrame {
+ public:
+  IwxMDIChildFrameCef(wxMDIParentFrame* parent,
+   wxWindowID id = wxID_ANY,
+   const wxString& title = L"",
+   const wxPoint& pos = wxDefaultPosition,
+   const wxSize& size = /*wxDefaultSize*/wxSize(640,480),
+   long style = wxDEFAULT_FRAME_STYLE,
+   const wxString& name = wxASCII_STR(wxFrameNameStr));
+  virtual ~IwxMDIChildFrameCef();
+ private:
+  void OnSize(wxSizeEvent& wxEvent);
+  void OnMove(wxMoveEvent& wxEvent);
+  void OnCloseWindow(wxCloseEvent& wxEvent);
+ };
+ class IwxMDIChildFrameImgui : public wxMDIChildFrame {
+ public:
+  IwxMDIChildFrameImgui(wxMDIParentFrame* parent,
+   wxWindowID id = wxID_ANY,
+   const wxString& title = L"",
+   const wxPoint& pos = wxDefaultPosition,
+   const wxSize& size = wxDefaultSize,
+   long style = wxDEFAULT_FRAME_STYLE,
+   const wxString& name = wxASCII_STR(wxFrameNameStr));
+  virtual ~IwxMDIChildFrameImgui();
+ private:
+  void OnSize(wxSizeEvent& wxEvent);
+  void OnMove(wxMoveEvent& wxEvent);
+  void OnCloseWindow(wxCloseEvent& wxEvent);
+ };
+
+ class IwxMDIParentFrame : public wxMDIParentFrame {
  public:
   IwxMDIParentFrame(wxWindow* parent = nullptr,
    const wxWindowID& id = wxID_ANY,
@@ -158,7 +201,8 @@ namespace wx {
  protected:
   std::vector<wxMDIChildFrame*> m_MDIChildFrames;
   std::atomic_bool m_EnableExitConfirmation = true;
- }IMDIParentFrame;
+  wxAuiManager m_wxAuiManager;
+ };
 
  class IwxFrame : public wxFrame {
  public:

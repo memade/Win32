@@ -83,6 +83,12 @@ foreach(entry ${entries})
 			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
 			)	
 		elseif(${origin_entry_name} STREQUAL "wxmdi")
+		
+			set(CEF_INCLUDE_DIR ${SOLUTION_ROOT_DIR}/third_party/cef/109.0.5414.120/x86/)
+			if(${CMAKE_VS_PLATFORM_NAME} STREQUAL "x64")
+			set(CEF_INCLUDE_DIR ${SOLUTION_ROOT_DIR}/third_party/cef/109.0.5414.120/x64/)
+			endif(${CMAKE_VS_PLATFORM_NAME} STREQUAL "x64")
+			
 		 target_include_directories(${origin_entry_name} 
 			PRIVATE 
 			${SOLUTION_INCLUDE_DIR}
@@ -92,17 +98,24 @@ foreach(entry ${entries})
 			${SOLUTION_ROOT_DIR}/third_party/freeglut/include/
 			${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/include/
 			${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/include/msvc/
+			${CEF_INCLUDE_DIR}/
 			)
-			
-			set(WXLIB_DIR ${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/lib/vc_lib/)
+
+			set(CEF_LIB_DIR ${SOLUTION_ROOT_DIR}/runtimes/cef/109.0.5414.120/x86/)
 			if(${CMAKE_VS_PLATFORM_NAME} STREQUAL "x64")
-			set(WXLIB_DIR ${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/lib/vc_x64_lib/)
+			set(CEF_LIB_DIR ${SOLUTION_ROOT_DIR}/runtimes/cef/109.0.5414.120/x64/)
+			endif(${CMAKE_VS_PLATFORM_NAME} STREQUAL "x64")
+			
+			set(WXLIB_LIB_DIR ${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/lib/vc_lib/)
+			if(${CMAKE_VS_PLATFORM_NAME} STREQUAL "x64")
+			set(WXLIB_LIB_DIR ${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/lib/vc_x64_lib/)
 			endif(${CMAKE_VS_PLATFORM_NAME} STREQUAL "x64")
 			
 			target_link_directories(${origin_entry_name} 
 			PRIVATE 
 			${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/lib/
-			${WXLIB_DIR}/
+			${WXLIB_LIB_DIR}/
+			${CEF_LIB_DIR}/
 			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
 			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
 			)	
