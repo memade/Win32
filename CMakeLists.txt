@@ -39,3 +39,7 @@ add_subdirectory(${SOLUTION_ROOT_DIR}/tests/)
 OutputPathConfig("")
 endif(ENABLE_MAIN_PROJECT_COMPILE_TESTS)
 
+OutputPathConfig("bin" "bin/projects/" "lib")
+add_subdirectory(${SOLUTION_ROOT_DIR}/projects/)
+#set_target_properties(tests PROPERTIES FOLDER "tests")
+OutputPathConfig("")

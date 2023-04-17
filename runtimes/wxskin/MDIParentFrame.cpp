@@ -40,9 +40,9 @@ namespace wx {
 
   //CreateChildNormal();
 
-  wxMDIChildFrame* result = new IwxMDIChildFrameCef(this);
-  result->Show(true);
-  m_MDIChildFrames.emplace_back(result);
+  //wxMDIChildFrame* result = new IwxMDIChildFrame(this);
+  //result->Show(true);
+  //m_MDIChildFrames.emplace_back(result);
 
   Bind(wxEVT_SIZE, &IwxMDIParentFrame::OnSize, this);
   Bind(wxEVT_CLOSE_WINDOW, &IwxMDIParentFrame::OnClose, this);

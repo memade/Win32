@@ -11,7 +11,7 @@ namespace wx {
   const wxString& name /*= wxASCII_STR(wxFrameNameStr)*/) :
   wxMDIChildFrame(parent, id, title, pos, size, style, name) {
 
-#if WX_ENABLE_MODULE_CEF
+#ifdef WX_ENABLE_MODULE_CEF
 
 #if defined(ARCH_CPU_32_BITS)
   // Run the main thread on 32-bit Windows using a fiber with the preferred 4MiB

@@ -1,9 +1,6 @@
 ﻿#if !defined(INC_H___1DF22BD4_2FF6_45C0_B192_ED0140F4AB4A__HEAD__)
 #define INC_H___1DF22BD4_2FF6_45C0_B192_ED0140F4AB4A__HEAD__
 
-#define WX_ENABLE_MODULE_CEF 1
-#define WX_ENABLE_MODULE_IMGUI 1
-
 #pragma warning(disable:4996)
 
 #if !defined(_CRT_SECURE_NO_DEPRECATE)
@@ -119,8 +116,9 @@
 #include "wx/msw/wrapwin.h"
 #include "wx/dcbuffer.h"
 #include "wx/mstream.h"
+#include "wx/graphics.h"
 
-#if WX_ENABLE_MODULE_CEF
+#ifdef WX_ENABLE_MODULE_CEF
 #include "imgui.hpp"
 #endif///#if WX_ENABLE_MODULE_CEF
 
@@ -142,13 +140,16 @@ namespace wx {
    const wxString& title = L"",
    const wxPoint& pos = wxDefaultPosition,
    const wxSize& size = wxDefaultSize,
-   long style = wxDEFAULT_FRAME_STYLE,
+   long style = wxDEFAULT_FRAME_STYLE | wxSUNKEN_BORDER,
    const wxString& name = wxASCII_STR(wxFrameNameStr));
   virtual ~IwxMDIChildFrame();
  private:
+  void OnPaint(wxPaintEvent& wxEvent);
   void OnSize(wxSizeEvent& wxEvent);
   void OnMove(wxMoveEvent& wxEvent);
   void OnCloseWindow(wxCloseEvent& wxEvent);
+  wxRegion GetRoundedRectShape();
+  wxGraphicsPath MakeRoundedRectangle(wxRect rect, int radius);
  };
 
  class IwxMDIChildFrameCef : public wxMDIChildFrame {
@@ -157,7 +158,7 @@ namespace wx {
    wxWindowID id = wxID_ANY,
    const wxString& title = L"",
    const wxPoint& pos = wxDefaultPosition,
-   const wxSize& size = /*wxDefaultSize*/wxSize(640,480),
+   const wxSize& size = wxDefaultSize,
    long style = wxDEFAULT_FRAME_STYLE,
    const wxString& name = wxASCII_STR(wxFrameNameStr));
   virtual ~IwxMDIChildFrameCef();
