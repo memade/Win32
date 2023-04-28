@@ -1,12 +1,17 @@
-function(install_sub_project entry_path entry_name)
-		file(GLOB SRCS "${entry_path}/*.c" "${entry_path}/*.cc" "${entry_path}/*.cpp")	
+function(install_sub_project entry_path entry_name is_shared)
+		file(GLOB SRCS "${entry_path}/*.c" "${entry_path}/*.cc" "${entry_path}/*.cpp" "${entry_path}/*.def")	
 		file(GLOB HEADS "${entry_path}/*.h" "${entry_path}/*.hpp")	
 		set(SOURCES
 		${SRCS}
 		${HEADS}
 		)
 
-		add_library(${entry_name} STATIC ${SOURCES})
+  if(is_shared)
+   add_definitions(-DSHARED_API)
+   add_library(${entry_name} SHARED ${SOURCES})
+  else()
+   add_library(${entry_name} STATIC ${SOURCES})
+  endif(is_shared)
 
 		if(MSVC AND ENABLE_MSVC_CRT_MT)
 		set_property(TARGET ${entry_name} PROPERTY
@@ -40,12 +45,12 @@ foreach(entry ${entries})
 	if(IS_DIRECTORY ${entry})
 		get_filename_component(origin_entry_name "${entry}" NAME)
 		
-		string(COMPARE EQUAL ${origin_entry_name} "cef" result_cef)
-		
+		string(COMPARE EQUAL ${origin_entry_name} "cef" result_cef)		
 		string(COMPARE EQUAL ${origin_entry_name} "openssl" result_openssl)
-		if(NOT result_openssl AND NOT result_cef)
-		install_sub_project(${entry} ${origin_entry_name})
-		
+  if(result_cef OR result_openssl)
+   continue()
+  endif(result_cef OR result_openssl)
+				
 		set(CEF_INCLUDE_DIR ${SOLUTION_ROOT_DIR}/third_party/cef/109.0.5414.120/x86/)
 		if(${CMAKE_VS_PLATFORM_NAME} STREQUAL "x64")
 		set(CEF_INCLUDE_DIR ${SOLUTION_ROOT_DIR}/third_party/cef/109.0.5414.120/x64/)
@@ -54,12 +59,14 @@ foreach(entry ${entries})
 		if(${origin_entry_name} STREQUAL "openssl")
 		elseif(${origin_entry_name} STREQUAL "cef")
 		elseif(${origin_entry_name} STREQUAL "win")
+   install_sub_project(${entry} ${origin_entry_name} OFF)
 			target_include_directories(${origin_entry_name} 
 			PRIVATE 
 			${SOLUTION_INCLUDE_DIR}
 			${SOLUTION_ROOT_DIR}/third_party/
 			)
-		elseif(${origin_entry_name} STREQUAL "cef++")			
+		elseif(${origin_entry_name} STREQUAL "cef++")
+   install_sub_project(${entry} ${origin_entry_name} OFF)
 			target_include_directories(${origin_entry_name} 
 			PRIVATE 
 			${SOLUTION_INCLUDE_DIR}
@@ -67,12 +74,51 @@ foreach(entry ${entries})
 			${CEF_INCLUDE_DIR}/
 			)		
 		elseif(${origin_entry_name} STREQUAL "zip++")
+   install_sub_project(${entry} ${origin_entry_name} OFF)
 			target_include_directories(${origin_entry_name} 
 			PRIVATE 
 			${SOLUTION_INCLUDE_DIR}
 			${SOLUTION_ROOT_DIR}/third_party/
-			)		
-		elseif(${origin_entry_name} STREQUAL "wxskin")		
+			)
+  elseif(${origin_entry_name} STREQUAL "spdlog")
+   install_sub_project(${entry} ${origin_entry_name} OFF)
+			target_include_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_INCLUDE_DIR}
+			${SOLUTION_ROOT_DIR}/third_party/
+   ${SOLUTION_ROOT_DIR}/third_party/spdlog/include/
+			)
+  elseif(${origin_entry_name} STREQUAL "libuvpp")
+   install_sub_project(${entry} ${origin_entry_name} ON)
+			target_include_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_INCLUDE_DIR}
+			${SOLUTION_ROOT_DIR}/third_party/
+   ${SOLUTION_ROOT_DIR}/third_party/http-parser/
+   ${SOLUTION_ROOT_DIR}/third_party/uv-cpp/uv/include/
+   ${SOLUTION_ROOT_DIR}/third_party/libuv-1.44.2/include/
+			)
+   target_link_directories(${origin_entry_name}
+   PRIVATE
+   ${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
+   ${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
+   )
+  elseif(${origin_entry_name} STREQUAL "libuv")
+   install_sub_project(${entry} ${origin_entry_name} ON)
+			target_include_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_INCLUDE_DIR}
+			${SOLUTION_ROOT_DIR}/third_party/
+   ${SOLUTION_ROOT_DIR}/third_party/http-parser/
+   ${SOLUTION_ROOT_DIR}/third_party/libuv-1.44.2/include/
+			)
+   target_link_directories(${origin_entry_name}
+   PRIVATE
+   ${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
+   ${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
+   )
+		elseif(${origin_entry_name} STREQUAL "wxskin")
+   install_sub_project(${entry} ${origin_entry_name} OFF)
 			target_include_directories(${origin_entry_name} 
 			PRIVATE 
 			${SOLUTION_INCLUDE_DIR}
@@ -84,9 +130,7 @@ foreach(entry ${entries})
 			)
 		endif()
 		set_target_properties(${origin_entry_name} PROPERTIES FOLDER "runtimes")
-		endif(NOT result_openssl AND NOT result_cef)
-
-		
+			
  endif(IS_DIRECTORY ${entry})
 endforeach(entry)
 

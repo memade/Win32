@@ -44,16 +44,15 @@ namespace shared {
   return result;
  }
 
- std::string Win::Encryption::WemadeEncode(const std::string& strSrc)
- {
+ std::string Win::Encryption::WemadeEncode(const std::string& input) {
   std::string result;
-  auto nSrcLen = strSrc.length();
-  auto pszSrc = (unsigned char*)strSrc.c_str();
-  int				nDestPos = 0;
-  int				nRestCount = 0;
-  unsigned char	chMade = 0, chRest = 0;
-  for (decltype(nSrcLen) i = 0; i < nSrcLen; i++)
-  {
+  size_t nSrcLen = input.length();
+  std::uint8_t* pszSrc = (std::uint8_t*)input.c_str();
+  int nDestPos = 0;
+  int nRestCount = 0;
+  std::uint8_t	chMade = 0;
+  std::uint8_t chRest = 0;
+  for (size_t i = 0; i < nSrcLen; i++) {
    chMade = ((chRest | (pszSrc[i] >> (2 + nRestCount))) & 0x3f);
    chRest = (((pszSrc[i] << (8 - (2 + nRestCount))) >> 2) & 0x3f);
    nRestCount += 2;
@@ -63,7 +62,6 @@ namespace shared {
    else {
     result.push_back(chMade + 0x3c);
     result.push_back(chRest + 0x3c);
-
     nRestCount = 0;
     chRest = 0;
    }
@@ -78,20 +76,17 @@ namespace shared {
   return result;
  }
 
- std::string Win::Encryption::WemadeDecode(const std::string& in)
- {
-  std::string strSrc = in;
+ std::string Win::Encryption::WemadeDecode(const std::string& input) {
   std::string result;
+  std::string strSrc = input;
   if (strSrc.empty()) {
    return result;
   }
-  auto endPos = strSrc.rfind(0x21);
-  if (endPos == std::string::npos)
-  {
+  size_t endPos = strSrc.rfind(0x21);
+  if (endPos == std::string::npos) {
    return result;
   }
-  else
-  {
+  else {
    strSrc.erase(endPos, strSrc.size() - endPos);
    strSrc.push_back(0x21);
   }
@@ -100,10 +95,13 @@ namespace shared {
   }
   strSrc.erase(strSrc.begin());
   strSrc.pop_back();
-  const unsigned char Decode6BitMask[5] = { 0xfc, 0xf8, 0xf0, 0xe0, 0xc0 };
-  int				nDestPos = 0, nBitPos = 2;
-  int				nMadeBit = 0;
-  unsigned char	ch, chCode, tmp;
+  const std::uint8_t Decode6BitMask[5] = { 0xfc, 0xf8, 0xf0, 0xe0, 0xc0 };
+  int nDestPos = 0;
+  int nBitPos = 2;
+  int nMadeBit = 0;
+  std::uint8_t	 ch = 0;
+  std::uint8_t chCode = 0;
+  std::uint8_t tmp = 0;
   for (auto it = strSrc.begin(); it != strSrc.end(); ++it) {
    if ((*it - 0x3c) >= 0) {
     ch = *it - 0x3c;

@@ -229,6 +229,7 @@ namespace shared {
   } while (0);
   return result;
  }
+ 
  bool Win::File::Memory::Ready() const {
   return m_Ready.load();
  }
@@ -679,6 +680,20 @@ namespace shared {
   if (of.is_open())
    of.close();
   SK_DELETE_PTR_C(buffer);
+  return result;
+ }
+ std::streampos Win::File::GetSizeA(const std::string& fileName) {
+  std::streampos result = 0;
+  do {
+   std::ifstream fileObj;
+   fileObj.open(fileName, std::ios::_Nocreate | std::ios::_Noreplace | std::ios::binary);
+   if (!fileObj.is_open())
+    break;
+   fileObj.seekg(0, std::ios_base::end);
+   result = fileObj.tellg();
+   fileObj.seekg(0, std::ios_base::beg);
+   fileObj.close();
+  } while (0);
   return result;
  }
  std::streampos Win::File::ReadFileSizeA(const std::string& FilePathname, const int& OpenMode /*= std::ios::_Nocreate | std::ios::_Noreplace | std::ios::binary*/) {

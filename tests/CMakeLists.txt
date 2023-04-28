@@ -60,7 +60,43 @@ foreach(entry ${entries})
 			PRIVATE 
 			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
 			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
-			)		
+			)
+  elseif(${origin_entry_name} STREQUAL "libuvpp_test")
+  	target_include_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_INCLUDE_DIR}
+			${SOLUTION_ROOT_DIR}/third_party/
+			${SOLUTION_ROOT_DIR}/third_party/libuv-1.44.2/include/
+   ${SOLUTION_ROOT_DIR}/third_party/uv-cpp/uv/include/
+			)
+   target_link_directories(${origin_entry_name} 
+			PRIVATE
+			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
+			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
+			)
+  elseif(${origin_entry_name} STREQUAL "libuv_server_test" OR ${origin_entry_name} STREQUAL "libuv_client_test")
+  	target_include_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_INCLUDE_DIR}
+			${SOLUTION_ROOT_DIR}/third_party/
+			${SOLUTION_ROOT_DIR}/third_party/libuv-1.44.2/include/
+			)
+   target_link_directories(${origin_entry_name} 
+			PRIVATE
+			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
+			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
+			)	  
+  elseif(${origin_entry_name} STREQUAL "encrypt_test")
+  	target_include_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_INCLUDE_DIR}
+			${SOLUTION_ROOT_DIR}/third_party/
+			)
+   target_link_directories(${origin_entry_name} 
+			PRIVATE
+			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
+			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
+			)
 		elseif(${origin_entry_name} STREQUAL "wxwidgets_test")
 			target_include_directories(${origin_entry_name} 
 			PRIVATE 

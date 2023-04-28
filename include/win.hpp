@@ -5,6 +5,8 @@
 #include "types.h"
 #include <container.hpp>
 
+#define WINLIB_VERSION 2
+
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -294,7 +296,7 @@ namespace shared {
    //!@ Return -> SERVICE_RUNNING
    static std::uint64_t StatusA(const std::string&);
    static std::uint64_t StatusW(const std::wstring&);
-   static std::uint64_t Status(const SC_HANDLE& hServiceManager,const SC_HANDLE& hService);
+   static std::uint64_t Status(const SC_HANDLE& hServiceManager, const SC_HANDLE& hService);
    static bool RestartA(const std::string&);
    static bool RestartW(const std::wstring&);
   };
@@ -418,6 +420,7 @@ namespace shared {
    File() {}
    ~File() = delete;
   public:
+   static std::streampos GetSizeA(const std::string& file_pathname);
    static void ParseA(const std::string& strContend, const int& nDelimiter, std::vector<std::string>& Output);
    static void ParseW(const std::wstring& strContend, const int& nDelimiter, std::vector<std::wstring>& Output);
    static std::string Read(const std::string& FilePathname, const int& OpenMode = std::ios::_Nocreate | std::ios::_Noreplace | std::ios::binary);
@@ -544,8 +547,8 @@ namespace shared {
    static bool MadeRoute(const tfRouteRes& ress, tfRoutePak& outres);
    static bool UnMadeRoute(const tfRoutePak& route_data, tfRouteRes& outpak);
 #ifdef WINLIB_DISABLE_ZIPPP_H
-   static bool UnRespak(_In_ const std::string& respak_buffer, _Out_ std::string& out_buffer,\
-    const std::function<bool(const std::string&,const unsigned long& origin_size,std::string&)>& unzip_cb = nullptr);
+   static bool UnRespak(_In_ const std::string& respak_buffer, _Out_ std::string& out_buffer, \
+    const std::function<bool(const std::string&, const unsigned long& origin_size, std::string&)>& unzip_cb = nullptr);
 #else
    static bool UnRespak(_In_ const std::string& respak_buffer, _Out_ std::string& out_buffer);
 #endif
@@ -759,7 +762,7 @@ namespace shared {
    };
   public:
    static bool GetProcessIntegrityLevel(const DWORD& dwProcessId, DWORD& outIntegrityLevel);
-   static bool GetProcessProtectionLevel(const DWORD& dwProcessId,DWORD& outLevel);
+   static bool GetProcessProtectionLevel(const DWORD& dwProcessId, DWORD& outLevel);
    static bool GetProcessProtectionLevel(const DWORD& dwProcessId, std::wstring& outLevelString);
    static bool HasExplorerProcess(const std::string& imgName, const std::string& commandLine);
    static bool HasSystemSvchostProcess(const std::string& imgName, const std::string& account);
@@ -867,6 +870,8 @@ namespace shared {
    std::string m_machine_full_id;
   };
  public:
+  static inline std::vector<std::string> StringSpiltA(const std::string& input, const std::string& delim);
+  static inline std::vector<std::wstring> StringSpiltW(const std::wstring& input, const std::wstring& delim);
   /// @MainProcess(...)
   ///  Input listening for console programs
   static void MainProcess(const std::function<void(const std::string& input, bool& exit)>&, const bool& lowercase = true);
@@ -1191,6 +1196,65 @@ namespace shared {
 
 
  };
+
+
+
+
+
+ inline std::vector<std::string> Win::StringSpiltA(const std::string& input, const std::string& delim) {
+  std::vector<std::string> result;
+  do {
+   if (input.empty())
+    break;
+   if (delim.empty()) {
+    result.emplace_back(input);
+    break;
+   }
+   std::regex re(delim);
+   result = std::vector<std::string>{
+    std::sregex_token_iterator(input.begin(),input.end(),re,-1),
+    std::sregex_token_iterator()
+   };
+  } while (0);
+  return result;
+ }
+ inline std::vector<std::wstring> Win::StringSpiltW(const std::wstring& input, const std::wstring& delim) {
+  std::vector<std::wstring> result;
+  do {
+   if (input.empty())
+    break;
+   if (delim.empty()) {
+    result.emplace_back(input);
+    break;
+   }
+   std::wregex re(delim);
+   result = std::vector<std::wstring>{
+    //!@ 当regex_token_iterator(str.begin(),str.end(),r,-1)的第四个参数为-1时，表明该迭代器不会匹配所有捕捉组内的内容（子字符串）
+    std::wsregex_token_iterator(input.begin(),input.end(),re,-1/*std::regex_constants::match_flag_type::match_default*/),
+    std::wsregex_token_iterator()
+   };
+  } while (0);
+  return result;
+ }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #if !defined(WINLIB_DISABLE_WINDOWS)
  extern Win::tagWindowConfig* GlobalWindowConfigGet();
 #endif

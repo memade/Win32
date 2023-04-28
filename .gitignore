@@ -1,5 +1,6 @@
 .vs/
 third_party/
+lib/
 libs/
 objs/
 bin/

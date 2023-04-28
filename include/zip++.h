@@ -15,42 +15,54 @@
 
 namespace shared {
 
-	class ZipWriteNode final {
-	public:
-		std::string Filename;
-		std::string FilePathname;
-		std::string Filebuffer;
-		std::string ReleaseRelativePathname;
-		void operator=(const ZipWriteNode& obj) {
-			Filename = obj.Filename;
-			Filebuffer = obj.Filebuffer;
-			FilePathname = obj.FilePathname;
-			ReleaseRelativePathname = obj.ReleaseRelativePathname;
-		}
-	};
+ enum class EnZipRetcode : int {
+  Z_RET_OK = 0,
+  Z_RET_STREAM_END = 1,
+  Z_RET_NEED_DICT = 2,
+  Z_RET_ERRNO = (-1),
+  Z_RET_STREAM_ERROR = (-2),
+  Z_RET_DATA_ERROR = (-3),
+  Z_RET_MEM_ERROR = (-4),
+  Z_RET_BUF_ERROR = (-5),
+  Z_RET_VERSION_ERROR = (-6),
+ };
 
-	class Zip final {
-	public:
-		Zip() {}
-		~Zip() = delete;
-	public:
-		static bool IsZipCompress(const std::string& buffer);
-		static int zipCompress(__in const std::string& src, __out std::string& dest) noexcept;
-		static int zipUnCompress(__in const std::string& src, __in const size_t& nraw, __out std::string& dest) noexcept;
-	public:
-		static bool gzipCompress(const std::string& src, std::string& dest, int level = -1);
-		static bool gzipUnCompress(const std::string& src, std::string& dest);
-		static bool zipFileUnCompress(const std::string& buffer, const std::string& out_path);
-		static bool zipPakUnCompress(const std::string& zipBuffer, const std::string& out_pathname);
-		static bool zipPakUnCompressFirstToBuffer(const std::string& zipBuffer, std::string& out_buffer);
-		static bool zipPakUnCompressToBuffer(const std::string& zipBuffer, const std::string& identify, std::string& out_buffer);
-		static bool zipBufferCompress(const std::string& zipBuffer, std::string& zipFinish);
-		static bool zipBufferUnCompress(const std::string& zipBuffer, const std::function<bool(const std::string&, const std::string&, bool&)>& uncompress_cb, const std::string& outputDir = "");
-	private://!@ GZip
-		static size_t GZGetBound(const size_t& sourceLen);
-		static int GZCompress(unsigned char* pSrc, unsigned long nSrc, unsigned char* pDest, unsigned long* nDest);
-		static int GZUnCompress(unsigned char* pSrc, unsigned long nSrc, unsigned char* pDest, unsigned long* nDest);
-	};
+ class ZipWriteNode final {
+ public:
+  std::string Filename;
+  std::string FilePathname;
+  std::string Filebuffer;
+  std::string ReleaseRelativePathname;
+  void operator=(const ZipWriteNode& obj) {
+   Filename = obj.Filename;
+   Filebuffer = obj.Filebuffer;
+   FilePathname = obj.FilePathname;
+   ReleaseRelativePathname = obj.ReleaseRelativePathname;
+  }
+ };
+
+ class Zip final {
+ public:
+  Zip() {}
+  ~Zip() = delete;
+ public:
+  static bool IsZipCompress(const std::string& buffer);
+  static bool zipCompress(__in const std::string& src, __out std::string& dest);
+  static bool zipUnCompress(__in const std::string& src, __in const size_t& nraw, __out std::string& dest);
+  static bool gzipCompress(const std::string& src, std::string& dest, int level = -1);
+  static bool gzipUnCompress(const std::string& src, std::string& dest);
+ public:
+  static bool zipFileUnCompress(const std::string& buffer, const std::string& out_path);
+  static bool zipPakUnCompress(const std::string& zipBuffer, const std::string& out_pathname);
+  static bool zipPakUnCompressFirstToBuffer(const std::string& zipBuffer, std::string& out_buffer);
+  static bool zipPakUnCompressToBuffer(const std::string& zipBuffer, const std::string& identify, std::string& out_buffer);
+  static bool zipBufferCompress(const std::string& zipBuffer, std::string& zipFinish);
+  static bool zipBufferUnCompress(const std::string& zipBuffer, const std::function<bool(const std::string&, const std::string&, bool&)>& uncompress_cb, const std::string& outputDir = "");
+ private://!@ GZip
+  static size_t GZGetBound(const size_t& sourceLen);
+  static int GZCompress(unsigned char* pSrc, unsigned long nSrc, unsigned char* pDest, unsigned long* nDest);
+  static int GZUnCompress(unsigned char* pSrc, unsigned long nSrc, unsigned char* pDest, unsigned long* nDest);
+ };
 
 }///namespace shared
 

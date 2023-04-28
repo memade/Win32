@@ -27,7 +27,7 @@ include(OutputPathConfig)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMakeTargets")
 
-OutputPathConfig("bin" "bin" "libs/runtimes/")
+OutputPathConfig("bin" "libs/runtimes/" "libs/runtimes/")
 add_subdirectory(${SOLUTION_ROOT_DIR}/runtimes/)
 OutputPathConfig("")
 

@@ -1,0 +1,8 @@
+LIBRARY
+EXPORTS
+api_object_init									@1
+api_object_uninit								@2
+api_server_init					@3
+api_server_uninit			@4
+api_client_init					@5
+api_client_uninit			@6

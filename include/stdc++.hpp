@@ -6,6 +6,7 @@
 #include <sstream>
 #include <fstream>
 #include <string>
+#include <regex>
 #include <algorithm>
 #include <atomic>
 #include <mutex>
