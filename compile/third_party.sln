@@ -25,6 +25,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "uvcpp", "..\third_party\uv-
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "http-parser", "..\third_party\http-parser\build\http-parser.vcxproj", "{09BBBB4C-D462-4940-AC43-A39FA6735A5F}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cjson", "..\third_party\cJSON\build\cjson.vcxproj", "{748935D3-B36F-4255-ADC5-BCB0805524A4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -121,6 +123,14 @@ Global
 		{09BBBB4C-D462-4940-AC43-A39FA6735A5F}.Release|Win32.Build.0 = Release|Win32
 		{09BBBB4C-D462-4940-AC43-A39FA6735A5F}.Release|x64.ActiveCfg = Release|x64
 		{09BBBB4C-D462-4940-AC43-A39FA6735A5F}.Release|x64.Build.0 = Release|x64
+		{748935D3-B36F-4255-ADC5-BCB0805524A4}.Debug|Win32.ActiveCfg = Debug|Win32
+		{748935D3-B36F-4255-ADC5-BCB0805524A4}.Debug|Win32.Build.0 = Debug|Win32
+		{748935D3-B36F-4255-ADC5-BCB0805524A4}.Debug|x64.ActiveCfg = Debug|x64
+		{748935D3-B36F-4255-ADC5-BCB0805524A4}.Debug|x64.Build.0 = Debug|x64
+		{748935D3-B36F-4255-ADC5-BCB0805524A4}.Release|Win32.ActiveCfg = Release|Win32
+		{748935D3-B36F-4255-ADC5-BCB0805524A4}.Release|Win32.Build.0 = Release|Win32
+		{748935D3-B36F-4255-ADC5-BCB0805524A4}.Release|x64.ActiveCfg = Release|x64
+		{748935D3-B36F-4255-ADC5-BCB0805524A4}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

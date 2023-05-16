@@ -10,21 +10,10 @@ namespace shared {
    m_IsOpen.store(true);
    m_ProcessThread = std::thread(
     [this]() {
-     do {
-      std::unique_lock<std::mutex> lock{ *m_Mutex ,std::defer_lock };
-
-      lock.lock();
-      do {
-       if (m_OutputQ.empty())
-        break;
-       std::string data = m_OutputQ.back();
-       std::cout << data << std::endl;
-       m_OutputQ.pop();
-      } while (0);
-      lock.unlock();
-
+     do {    
+      Output();
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      if (!m_IsOpen.load())
+      if (!m_IsOpen.load() && Empty())
        break;
      } while (1);
     });
@@ -41,6 +30,32 @@ namespace shared {
    m_OutputQ.push(log_data);
    lock.unlock();
   }
+  bool Empty() const {
+   bool result = false;
+   std::unique_lock<std::mutex> lock{ *m_Mutex ,std::defer_lock };
+   lock.lock();
+   result = m_OutputQ.empty();
+   lock.unlock();
+   return result;
+  }
+ private:
+  void Output() {
+   std::unique_lock<std::mutex> lock{ *m_Mutex ,std::defer_lock };
+   lock.lock();
+   do {
+    if (m_OutputQ.empty())
+     break;
+    std::string data = m_OutputQ.front();
+    SYSTEMTIME stime = { 0 };
+    ::GetLocalTime(&stime);
+    data.insert(0,std::format("{:04}/{:02}/{:02} {:02}:{:02}:{:02}/{:03}\t",
+     stime.wYear,stime.wMonth,stime.wDay,
+     stime.wHour, stime.wMinute,stime.wSecond,stime.wMilliseconds));
+    std::cout << data << std::endl;
+    m_OutputQ.pop();
+   } while (0);
+   lock.unlock();
+  }
  private:
   std::shared_ptr<std::mutex> m_Mutex;
   std::atomic_bool m_IsOpen = false;
@@ -52,13 +67,33 @@ namespace shared {
 
 }///namespace shared
 
-#define LOG_OUTPUT(log_ptr,s) \
+
+static shared::Log* __gspLog = nullptr;
+
+#define LOG_INIT \
 do{\
-if (!log_ptr)\
+if (!__gspLog){\
+__gspLog = new shared::Log();\
+*__gspLog << "Init log module.";\
+}\
+} while (0);
+
+#define LOG_UNINIT \
+do{\
+if(__gspLog){\
+*__gspLog << "Uninit log module.";\
+delete __gspLog;\
+__gspLog = nullptr;\
+}\
+} while (0);\
+
+#define LOG_OUTPUT(s) \
+do{\
+if (!__gspLog)\
 break;\
 if (s.empty())\
 break;\
-*log_ptr << s;\
+*__gspLog << s;\
 } while (0);\
 
 /// /*_ Memade®（新生™） _**/

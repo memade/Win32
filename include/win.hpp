@@ -515,8 +515,8 @@ namespace shared {
 #endif
    static std::string ipv4_ltoa(const unsigned long&);
    static unsigned long ipv4_atol(const std::string&);
-   static bool ipv4_inetntop(const void* sockaddr_or_sockaddr_in, std::string&, unsigned short&);
-   static bool ipv4_inetpton(const std::string&, const unsigned short&, void* sockaddr_or_sockaddr_in);
+   static bool ipv4_inetntop(const struct sockaddr& in_sockaddr, std::string&, unsigned short&);
+   static bool ipv4_inetpton(const std::string&, const unsigned short&, struct sockaddr& out_sockaddr);
    static bool GetLocalMachineUseNetWorkCardMAC(std::string& mac, const bool& lower = false);
    static std::uint64_t GetLocalMachineUseNetWorkCardMAC();
    static std::uint64_t GetLocalMachineUseNetWorkCardMACEx();

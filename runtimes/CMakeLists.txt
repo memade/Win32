@@ -89,6 +89,7 @@ foreach(entry ${entries})
    ${SOLUTION_ROOT_DIR}/third_party/spdlog/include/
 			)
   elseif(${origin_entry_name} STREQUAL "libuvpp")
+   continue()
    install_sub_project(${entry} ${origin_entry_name} ON)
 			target_include_directories(${origin_entry_name} 
 			PRIVATE 
@@ -103,7 +104,7 @@ foreach(entry ${entries})
    ${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
    ${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
    )
-  elseif(${origin_entry_name} STREQUAL "libuv")
+  elseif(${origin_entry_name} STREQUAL "libuv++")
    install_sub_project(${entry} ${origin_entry_name} ON)
 			target_include_directories(${origin_entry_name} 
 			PRIVATE 

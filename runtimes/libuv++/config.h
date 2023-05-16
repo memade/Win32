@@ -17,16 +17,14 @@ namespace local {
   void IPAddrV6(const std::string&) override final;
   const unsigned int& Port() const override final;
   void Port(const unsigned int&) override final;
-  const EnServerType& ServerType() const override final;
-  void ServerType(const EnServerType&) override final;
   const std::string& PipeName() const override final;
   void PipeName(const std::string&) override final;
+  std::string Address(const SessionType&) const override final;
  private:
   std::string m_PipeName;
   std::string m_IPAddrV4;
   std::string m_IPAddrV6;
   unsigned int m_Port = 0;
-  EnServerType m_ServerType = EnServerType::TCP;
  };
 }///namespace local
 

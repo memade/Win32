@@ -5,7 +5,7 @@ namespace local {
 
  class Client final : public IClient {
  public:
-  Client();
+  Client(const SessionType&);
   virtual ~Client();
  public:
   void Release() const override final;
@@ -13,13 +13,14 @@ namespace local {
   void Stop() override final;
   IConfig* ConfigGet() const override final;
   ConnectionStatus ConnStatus() const override final;
+  unsigned long SessionCount() const override final;
  private:
   Session* m_pSession = nullptr;
   Config* m_pConfig = nullptr;
   std::atomic_bool m_IsOpen = false;
   void Process();
   std::vector<std::thread> m_Threads;
-  shared::Log* m_pLog = nullptr;
+  const SessionType m_SessionType;
  };
 
  extern Client* __gpClient;

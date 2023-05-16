@@ -4,9 +4,11 @@
 namespace local {
 #pragma pack(push,1)
  // Define a C++ struct called "PacketHeader", which inherits from the "IPacketHeader" interface
- struct PacketHeader : public IPacketHeader {
+ typedef struct tagPacketHeader : public IPacketHeader {
   // Packet header logo
   unsigned long header_logo;
+  // Server identify
+  unsigned long long server_identify;
   // Original data size
   unsigned long original_size;
   // Real-time (actual) data size
@@ -14,19 +16,19 @@ namespace local {
   // Total size of the packet frame
   unsigned long packet_size;
   // Command code
-  unsigned long command_code;
+  TypeCommandType command_code;
   // ZIP compression type
-  int zip_type;
+  TypeZipType zip_type;
   // Packet encryption type
-  int encryption_type;
+  TypeEncryptType encryption_type;
   // Packet footer logo
   unsigned long footer_logo;
   // Character array used to encapsulate the data
   char data[1];
 
   // Constructors
-  PacketHeader();
-  PacketHeader(const CommandType&);
+  tagPacketHeader();
+  tagPacketHeader(const CommandType&);
 
   // Member functions
   // Verify the packet header
@@ -43,39 +45,10 @@ namespace local {
   unsigned long OriginalSize() const override final;
   // Return the packet totoal size
   unsigned long PacketSize() const override final;
- };
- // Define shorthand names for the struct
- typedef PacketHeader Head;
- typedef PacketHeader HEAD;
- typedef PacketHeader* PHEAD;
- typedef PacketHeader PACKETHEAD;
- typedef PacketHeader* PPACKETHEAD;
-
- typedef struct {
-  uv_write_t req;
-  uv_buf_t buf;
-  void* handle;
- } write_req_t;
-
- typedef enum {
-  Unknown = 0,
-  Write = 1,
-  Close = 2,
- }async_req_type;
-
- typedef struct {
-  void* data;
-  void* host;
-  async_req_type req_type;
- } async_req_t;
-
- typedef struct {
-  int status;
-  void* caller;
-  void* route;
-  int connect_action;
- }connect_callback_route_t;
+ }PacketHeader, HEAD,* PHEAD;
 #pragma pack(pop)
+
+
 
  class Protocol final : public IProtocol {
  public:
@@ -84,6 +57,17 @@ namespace local {
  public:
   static std::string MakeStream(const HEAD&, const std::string&);
   static bool UnMakeStream(const std::string& input, HEAD&, std::string& output);
+  static void uv_async_cb(uv_async_t* async_handle);
+  static void uv_close_loop(void* uv_handle_loop = nullptr);
+  static void uv_close_default_loop();
+  static TypeIdentify make_sock_session_identify(const SessionType&, const struct sockaddr&);
+  static bool unmake_sock_session_identify(const TypeIdentify&, SessionType&, struct sockaddr&);
+  static bool unmake_sock_session_identify(const TypeIdentify&, SessionType&, std::string& ip,u_short& port);
+  static std::string unmake_sock_session_identify(const TypeIdentify&);
+  static TypeIdentify make_pipe_session_identify(const SessionType&/*unsigned long*/ type);
+  static bool unmake_pipe_session_identify(const TypeIdentify&,SessionType&,time_t&);
+  static bool parser_ipaddr(const std::string& address, std::string& ip, u_short& port);
+  static bool parser_ipaddr(const sockaddr_storage* in_addr, std::string& out_ip, u_short& out_port, const IPType& ipv = IPType::IPV4);
  };
 
 

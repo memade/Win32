@@ -2,13 +2,14 @@
 
 namespace local {
 
- Client::Client() {
-  m_pLog = new shared::Log();
-  m_pConfig = new Config();
+ Client::Client(const SessionType& session_type)
+  : m_SessionType(session_type) {
+  LOG_INIT
+   m_pConfig = new Config();
  }
  Client::~Client() {
   SK_DELETE_PTR(m_pConfig);
-  SK_DELETE_PTR(m_pLog);
+  LOG_UNINIT;
  }
  void Client::Release() const {
   delete this;
@@ -41,7 +42,9 @@ namespace local {
  IConfig* Client::ConfigGet() const {
   return dynamic_cast<IConfig*>(m_pConfig);
  }
-
+ unsigned long Client::SessionCount() const {
+  return 1;
+ }
  void Client::Process() {
   std::uint64_t time_current = ::GetTickCount64();
   std::uint64_t time_reconnection_prev = 0;
@@ -54,30 +57,38 @@ namespace local {
     time_reconnection_prev = time_current;
 
     if (!m_pSession)
-     m_pSession = new Session(EnSessionType::TCP_SESSION_CLIENT);
-    if (m_pSession->Status() == SessionStatus::Connecting || \
-     m_pSession->Status() == SessionStatus::Closing)
+     m_pSession = new Session(m_SessionType);
+    const auto session_status = m_pSession->Status();
+    switch (session_status) {
+    case SessionStatus::Closed:
+     [[fallthrough]];
+    case SessionStatus::Closing:
+     [[fallthrough]];
+    case SessionStatus::Connecting:
      break;
-    if (m_pSession->Status() == SessionStatus::Closed) {
-     m_pSession->Destory();
+    case SessionStatus::ForceClose:
+     LOG_OUTPUT(std::format("Disconnect from the service ({}).", m_pConfig->Address(m_SessionType)));
+     m_pSession->Stop();
      SK_DELETE_PTR(m_pSession);
-     m_pSession = new Session(EnSessionType::TCP_SESSION_CLIENT);
+     m_pSession = new Session(m_SessionType);
+     break;
+    default:
+     break;
     }
 
-    m_pSession->Connect(m_pConfig->IPAddrV4(), m_pConfig->Port(),
-     [&](connect_callback_route_t* route) {
-      if (route->status != 0)
-       m_pSession->ForceClose();
+    LOG_OUTPUT(std::format("Preparing to connect to the service ({}).", m_pConfig->Address(m_SessionType)));
 
-      LOG_OUTPUT(m_pLog, std::format("Connect to server {} on status({}).", route->status == 0 ? "success" : "failed", route->status));
-
+    m_pSession->Start(m_pConfig->Address(m_SessionType),
+     [&](const bool& is_connected, bool& force_close) {
+      if (!is_connected)
+       force_close = true;
+      LOG_OUTPUT(std::format("Connect to server {}.", is_connected ? "success" : "failed"));
      });
    } while (0);
 
    do {
-    if (!m_pSession)
-     break;
-    if (m_pSession->Status() != ConnectionStatus::Connected)
+    if (m_pSession && m_pSession->Status() != ConnectionStatus::Connected &&
+     m_pSession->Status() != ConnectionStatus::Connecting)
      break;
 
     do {//!@ KeepAlive
@@ -89,7 +100,8 @@ namespace local {
     } while (0);
 
     do {//read
-     if (m_pSession->Status() != ConnectionStatus::Connected)
+     if (m_pSession && m_pSession->Status() != ConnectionStatus::Connected &&
+      m_pSession->Status() != ConnectionStatus::Connecting)
       break;
      std::string read_data = m_pSession->Read();
      if (read_data.empty())
@@ -100,12 +112,12 @@ namespace local {
       m_pSession->ForceClose();
       break;
      }
-     LOG_OUTPUT(m_pLog,
-      std::format("recv message({:X}:{})", static_cast<unsigned long>(head.Command()), message));
+     LOG_OUTPUT(std::format("recv message({:X}:{})", static_cast<unsigned long>(head.Command()), message));
 
      switch (head.Command()) {
      case CommandType::Welcome: {
-      m_pSession->Write(CommandType::Hello, std::format("Hello server ! I'm tcp client session."));
+      m_pSession->Status(SessionStatus::Connected);
+      m_pSession->Write(CommandType::Hello, std::format("Hello!"));
      }break;
      default:
       break;
@@ -114,15 +126,14 @@ namespace local {
 
 
     do {//write
-     if (m_pSession->Status() != ConnectionStatus::Connected)
+     if (m_pSession && m_pSession->Status() != ConnectionStatus::Connected &&
+      m_pSession->Status() != ConnectionStatus::Connecting)
       break;
      if (!m_pSession->Write()) {
       m_pSession->ForceClose();
       break;
      }
-
-
-
+     time_reconnection_prev = time_current;
     } while (0);
 
 
@@ -132,15 +143,8 @@ namespace local {
 
    if (!m_IsOpen.load()) {
     if (m_pSession) {
-     m_pSession->ForceClose();
-     do {
-      if (m_pSession && m_pSession->Status() == SessionStatus::Closed) {
-       m_pSession->Destory();
-       SK_DELETE_PTR(m_pSession);
-       break;
-      }
-      std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-     } while (1);
+     m_pSession->Stop();
+     m_pSession->Release();
     }
     break;
    }

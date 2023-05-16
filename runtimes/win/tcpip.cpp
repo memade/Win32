@@ -85,19 +85,19 @@ namespace shared {
    if (ip_str.empty())
     break;
    struct sockaddr_in antelope;
-   if (1 != ::inet_pton(AF_INET, ip_str.c_str(), &(antelope.sin_addr)))
+   if (1 != ::inet_pton(AF_INET, ip_str.c_str(), &antelope.sin_addr))
     break;
    result = antelope.sin_addr.S_un.S_addr;
   } while (0);
   return result;
  }
 
- bool Win::Tcpip::ipv4_inetntop(const void* sockaddr_or_sockaddr_in, std::string& ip, unsigned short& port) {
+ bool Win::Tcpip::ipv4_inetntop(const struct sockaddr& in_sockaddr, std::string& ip, unsigned short& port) {
   bool result = false;
   ip.clear();
   port = 0;
   do {
-   struct sockaddr_in* addr_in = reinterpret_cast<struct sockaddr_in*>(const_cast<void*>(sockaddr_or_sockaddr_in));
+   const struct sockaddr_in* addr_in = reinterpret_cast<const struct sockaddr_in*>(&in_sockaddr);
    if (!addr_in)
     break;
    ip.resize(MAX_IPADDR_STRING, 0x00);
@@ -114,16 +114,14 @@ namespace shared {
   } while (0);
   return result;
  }
- bool Win::Tcpip::ipv4_inetpton(const std::string& ip, const unsigned short& port, void* sockaddr_or_sockaddr_in) {
+ bool Win::Tcpip::ipv4_inetpton(const std::string& ip, const unsigned short& port, struct sockaddr& out_sockaddr) {
   bool result = false;
   do {
-   if (!sockaddr_or_sockaddr_in)
-    break;
    if (ip.empty() || port <= 0)
     break;
    if (ip.size() > MAX_IPADDR_STRING)
     break;
-   struct sockaddr_in* sockin = reinterpret_cast<struct sockaddr_in*>(sockaddr_or_sockaddr_in);
+   struct sockaddr_in* sockin = reinterpret_cast<struct sockaddr_in*>(&out_sockaddr);
    result = ::inet_pton(AF_INET, ip.c_str(), &sockin->sin_addr) > 0;
    if (!result)
     break;

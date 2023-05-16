@@ -23,6 +23,7 @@
 #if _HAS_CXX20/*_MSVC_LANG>201703L*/
 #include <format>
 #include <coroutine>
+#include <concepts>  // (模板)类型约束
 #endif
 #if _HAS_CXX23
 #endif
