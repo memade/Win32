@@ -306,6 +306,7 @@ namespace wx {
  private:
   void OnCreateFrame(wxThreadEvent& event);
   void OnDestory(wxThreadEvent& event);
+  void OnShowWindow(wxThreadEvent& event);
  public:
   bool OnInit() override;
   int OnExit() override;
@@ -324,12 +325,14 @@ namespace wx {
 
  class IWxui {
  public:
-  IWxui(const HINSTANCE&);
+  IWxui(const HINSTANCE&, const bool& show = true);
   virtual ~IWxui();
  public:
   virtual bool Start();
   virtual void Stop();
+  virtual void Show(const bool&);
   virtual void Release() const;
+  virtual const HANDLE& MainHandle() const;
   virtual void EnableExitConfirmation(const bool&);
  protected:
   virtual void MainProcess();
@@ -338,10 +341,11 @@ namespace wx {
   Theme* m_pTheme1 = nullptr;
   Theme* m_pTheme2 = nullptr;
  protected:
-  std::atomic_bool m_EnableExitConfirmation = true;
+  bool m_EnableExitConfirmation = true;
   const HINSTANCE m_hInstance = nullptr;
   HWND m_hWnd = nullptr;
-  std::atomic_bool m_IsOpenUI = false;
+  bool m_IsOpenUI = false;
+  bool m_bShow = false;
   HANDLE m_hUIMain = nullptr;
   HANDLE m_hUIMainCreateEvent = nullptr;
   std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();
@@ -350,6 +354,7 @@ namespace wx {
 
  extern const int WX_CMD_ONAPPCREATEFRAME;
  extern const int WX_CMD_ONAPPDESTORY;
+ extern const int WX_CMD_SHOWWINDOW;
 }///namespace wx
 
 

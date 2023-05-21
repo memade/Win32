@@ -1,7 +1,9 @@
 ﻿#include "stdafx.h"
 
 namespace wx {
- IWxui::IWxui(const HINSTANCE& hinstance) : m_hInstance(hinstance) {
+ IWxui::IWxui(const HINSTANCE& hinstance, const bool& show /*= true*/)
+  : m_hInstance(hinstance)
+  , m_bShow(show) {
   m_hUIMainCreateEvent = ::CreateEventW(NULL, TRUE, FALSE, NULL);
  }
  IWxui::~IWxui() {
@@ -12,18 +14,16 @@ namespace wx {
   delete this;
  }
  void IWxui::EnableExitConfirmation(const bool& enable) {
-  m_EnableExitConfirmation.store(enable);
+  m_EnableExitConfirmation = enable;
  }
  bool IWxui::Start() {
   do {
-#if 0
    INITCOMMONCONTROLSEX icc = { 0 };
    icc.dwSize = sizeof(INITCOMMONCONTROLSEX);
    icc.dwICC = ICC_WIN95_CLASSES;
    if (FALSE == ::InitCommonControlsEx(&icc))
     break;
-#endif
-   if (m_IsOpenUI.load())
+   if (m_IsOpenUI)
     break;
    if (!m_hInstance)
     break;
@@ -34,18 +34,27 @@ namespace wx {
      return 0;
     }, this, 0, NULL));
    ::WaitForSingleObject(m_hUIMainCreateEvent, INFINITE);
-   m_IsOpenUI.store(true);
+   m_IsOpenUI = true;
   } while (0);
-  return m_IsOpenUI.load();
+  return m_IsOpenUI;
  }
  void IWxui::Stop() {
   do {
-   if (!m_IsOpenUI.load())
+   if (!m_IsOpenUI)
     break;
    ::SendMessageW(m_hWnd, WM_CLOSE, 0, 0);
    ::WaitForSingleObject(m_hUIMain, INFINITE);
-   m_IsOpenUI.store(false);
+   m_IsOpenUI = false;
   } while (0);
+ }
+ void IWxui::Show(const bool& show) {
+  m_bShow = show;
+  wxThreadEvent* e = new wxThreadEvent(wxEVT_THREAD, WX_CMD_SHOWWINDOW);
+  e->SetInt(show ? 1 : 0);
+  wxQueueEvent(wxApp::GetInstance(), e);
+ }
+ const HANDLE& IWxui::MainHandle() const {
+  return m_hUIMain;
  }
  void IWxui::MainProcess() {
   do {
@@ -56,18 +65,18 @@ namespace wx {
    if (!wxinit.IsOk())
     break;
 
-
-   auto app = wxDynamicCast(wxApp::GetInstance(), IwxApp);
+   IwxApp* app = wxDynamicCast(wxApp::GetInstance(), IwxApp);
    app->RegisterAppCreateFrameEventCb(
     [&](wxFrame* frame) {
      auto mdiFrameWnd = wxDynamicCast(frame, IwxMDIParentFrame);
-     mdiFrameWnd->EnableExitConfirmation(m_EnableExitConfirmation.load());
+     mdiFrameWnd->EnableExitConfirmation(m_EnableExitConfirmation);
      m_hWnd = mdiFrameWnd->GetHwnd();
      mdiFrameWnd->Center();
      NotifyMainCreateEvent();
     });
-   auto frame = new wx::IwxMDIParentFrame(nullptr);
-   wxThreadEvent* event = new wxThreadEvent(wxEVT_THREAD, wx::WX_CMD_ONAPPCREATEFRAME);
+   IwxMDIParentFrame* frame = new IwxMDIParentFrame(nullptr);
+   frame->Show(m_bShow);
+   wxThreadEvent* event = new wxThreadEvent(wxEVT_THREAD, WX_CMD_ONAPPCREATEFRAME);
    event->SetEventObject(frame);
    event->SetString("Hello wxWidgets!");
    wxQueueEvent(wxApp::GetInstance(), event);

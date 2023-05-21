@@ -229,7 +229,7 @@ namespace shared {
   } while (0);
   return result;
  }
- 
+
  bool Win::File::Memory::Ready() const {
   return m_Ready.load();
  }
@@ -713,12 +713,39 @@ namespace shared {
  std::streampos Win::File::ReadFileSizeW(const std::wstring& FilePathname, const int& OpenMode /*= std::ios::_Nocreate | std::ios::_Noreplace | std::ios::binary*/) {
   return Win::File::ReadFileSizeA(IConv::WStringToMBytes(FilePathname), OpenMode);
  }
- std::string Win::File::Read(const std::string& FilePathname, const int& OpenMode /*= std::ios::_Nocreate | std::ios::_Noreplace | std::ios::binary*/) {
+ std::string Win::File::ReadC(const std::string& FilePathname, const std::string& OpenMode /*= "rb"*/, const int& _ShFlag /*= _SH_DENYNO*/) {
   std::string result;
-  std::fstream of(FilePathname, OpenMode);
-  /// Buffering was added to avoid crashes on the X86 platform
+  FILE* f_handle = nullptr;
+  do {
+   f_handle = ::_fsopen(FilePathname.c_str(), OpenMode.c_str(), _ShFlag);
+   if (!f_handle)
+    break;
+   if (0 != ::fseek(f_handle, 0, SEEK_END))
+    break;
+   long lSize = ::ftell(f_handle);
+   if (lSize <= 0)
+    break;
+   ::rewind(f_handle);
+   if (0 != ::fseek(f_handle, 0, SEEK_SET))
+    break;
+   result.resize(lSize);
+   size_t nread = ::fread(&result[0], 1, lSize, f_handle);
+   if (nread <= 0)
+    result.clear();
+  } while (0);
+  if (f_handle) {
+   ::fclose(f_handle);
+   f_handle = nullptr;
+  }
+  return result;
+ }
+ std::string Win::File::ReadCXX(const std::string& FilePathname, const int& OpenMode /*= std::ios::in | std::ios::binary*/) {
+  std::string result;
+  std::fstream of;
+  of.open(FilePathname, OpenMode);
   char* buffer = nullptr;
   do {
+   auto error = GetLastError();
    if (!of.is_open())
     break;
    of.seekg(0, of.end);
@@ -803,7 +830,7 @@ std::wstring wide_string = converter.from_bytes("\xc4\xe3\xba\xc3”);  //字符
    result = true;
   } while (0);
   return result;
- }
+  }
 #endif
  bool Win::File::WriteAddto(const std::string& FilePathname, const std::string& WriteData) {
   bool result = false;
@@ -1171,8 +1198,8 @@ std::wstring wide_string = converter.from_bytes("\xc4\xe3\xba\xc3”);  //字符
     }
 
     std::cout << "Success!\n" << std::endl;
-   }
   }
+ }
   else
   {
    //TRACE(utils::error::getText(Error));
@@ -1914,11 +1941,11 @@ std::wstring wide_string = converter.from_bytes("\xc4\xe3\xba\xc3”);  //字符
      break;
     RetStr.append((wchar_t*)lpData, nQuerySize);
     result = !RetStr.empty();
-   } while (0);
-   SK_DELETE_PTR_BUFFER(m_lpVersionData);
   } while (0);
-  return result;
- }
+  SK_DELETE_PTR_BUFFER(m_lpVersionData);
+ } while (0);
+ return result;
+}
 #endif
  bool Win::File::Attribute::QueryValueW(const std::wstring& ValueName, const std::wstring& szModuleName, std::wstring& RetStr) {
   bool result = false;

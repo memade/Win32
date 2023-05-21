@@ -423,7 +423,8 @@ namespace shared {
    static std::streampos GetSizeA(const std::string& file_pathname);
    static void ParseA(const std::string& strContend, const int& nDelimiter, std::vector<std::string>& Output);
    static void ParseW(const std::wstring& strContend, const int& nDelimiter, std::vector<std::wstring>& Output);
-   static std::string Read(const std::string& FilePathname, const int& OpenMode = std::ios::_Nocreate | std::ios::_Noreplace | std::ios::binary);
+   static std::string ReadCXX(const std::string& FilePathname, const int& OpenMode = std::ios::in | std::ios::binary /*std::ios::_Nocreate | std::ios::_Noreplace | std::ios::binary*/);
+   static std::string ReadC(const std::string& FilePathname, const std::string& OpenMode = "rb", const int& _ShFlag = _SH_DENYNO);
    static bool Write(const std::string& FilePathname, const std::string& WriteData, const int& OpenMode = std::ios::binary | std::ios::out | std::ios::trunc);
    static bool WriteAddto(const std::string& FilePathname, const std::string& WriteData);
 #if 0

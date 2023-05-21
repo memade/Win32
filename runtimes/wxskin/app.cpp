@@ -27,6 +27,7 @@ namespace wx {
    wxAppBase::SetExitOnFrameDelete(false);
    wxEvtHandler::Bind(wxEVT_THREAD, &IwxApp::OnDestory, this, WX_CMD_ONAPPDESTORY);
    wxEvtHandler::Bind(wxEVT_THREAD, &IwxApp::OnCreateFrame, this, WX_CMD_ONAPPCREATEFRAME);
+   wxEvtHandler::Bind(wxEVT_THREAD, &IwxApp::OnShowWindow, this, WX_CMD_SHOWWINDOW);
 
    result = true;
   } while (0);
@@ -55,15 +56,18 @@ namespace wx {
   }
   else {
    m_pFrame = new IwxMDIParentFrame();
+   m_pFrame->Show(true);
   }
-  m_pFrame->Show(true);
 
   if (m_AppCreateFrameEventCb)
    m_AppCreateFrameEventCb(m_pFrame);
  }
  void IwxApp::OnDestory(wxThreadEvent& event) {
-  ExitMainLoop();
+  wxAppConsoleBase::ExitMainLoop();
  }
-
+ void IwxApp::OnShowWindow(wxThreadEvent& event) {
+  if (m_pFrame)
+   m_pFrame->Show(true);
+ }
 
 }///namespace wx

@@ -13,7 +13,6 @@ namespace wx {
   //m_wxAuiManager.SetManagedWindow(this);
   //m_wxAuiManager.SetFlags(wxAUI_MGR_ALLOW_ACTIVE_PANE | wxAUI_MGR_DEFAULT);
 
-
 #if 0
   // create a panel to hold the browser window
   wxPanel* panel = new wxPanel(this);

@@ -27,6 +27,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "http-parser", "..\third_par
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cjson", "..\third_party\cJSON\build\cjson.vcxproj", "{748935D3-B36F-4255-ADC5-BCB0805524A4}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Detours", "..\third_party\Detours-3.3.9\build\Detours.vcxproj", "{E666EB3C-BD97-4CFA-B8CD-9051DEF74E19}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -131,6 +133,14 @@ Global
 		{748935D3-B36F-4255-ADC5-BCB0805524A4}.Release|Win32.Build.0 = Release|Win32
 		{748935D3-B36F-4255-ADC5-BCB0805524A4}.Release|x64.ActiveCfg = Release|x64
 		{748935D3-B36F-4255-ADC5-BCB0805524A4}.Release|x64.Build.0 = Release|x64
+		{E666EB3C-BD97-4CFA-B8CD-9051DEF74E19}.Debug|Win32.ActiveCfg = Debug|Win32
+		{E666EB3C-BD97-4CFA-B8CD-9051DEF74E19}.Debug|Win32.Build.0 = Debug|Win32
+		{E666EB3C-BD97-4CFA-B8CD-9051DEF74E19}.Debug|x64.ActiveCfg = Debug|x64
+		{E666EB3C-BD97-4CFA-B8CD-9051DEF74E19}.Debug|x64.Build.0 = Debug|x64
+		{E666EB3C-BD97-4CFA-B8CD-9051DEF74E19}.Release|Win32.ActiveCfg = Release|Win32
+		{E666EB3C-BD97-4CFA-B8CD-9051DEF74E19}.Release|Win32.Build.0 = Release|Win32
+		{E666EB3C-BD97-4CFA-B8CD-9051DEF74E19}.Release|x64.ActiveCfg = Release|x64
+		{E666EB3C-BD97-4CFA-B8CD-9051DEF74E19}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -56,7 +56,7 @@ namespace wx {
   *ppMInputStream = nullptr;
   do {
    do {
-    auto inputBuffer = shared::Win::File::Read(imgPathname);
+    auto inputBuffer = shared::Win::File::ReadCXX(imgPathname);
     if (inputBuffer.empty())
      break;
     *ppMInputStream = new wxMemoryInputStream(inputBuffer.data(), inputBuffer.size());
@@ -103,4 +103,5 @@ namespace wx {
 
  extern const int WX_CMD_ONAPPCREATEFRAME = wxNewId();
  extern const int WX_CMD_ONAPPDESTORY = wxNewId();
+ extern const int WX_CMD_SHOWWINDOW = wxNewId();
 }///namespace wx

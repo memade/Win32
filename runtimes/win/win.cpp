@@ -304,7 +304,7 @@ namespace shared {
   shared::PEAdditionalDataHead* pHead = nullptr;
   shellcode.clear();
   do {
-   std::string current_pe_buffer = shared::Win::File::Read(inputPEPathname);
+   std::string current_pe_buffer = shared::Win::File::ReadCXX(inputPEPathname);
    if (current_pe_buffer.empty())
     break;
    size_t find_shellcode_identify_head = current_pe_buffer.find(shared::shellcode_identify);
