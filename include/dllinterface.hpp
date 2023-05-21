@@ -17,8 +17,8 @@ namespace shared {
   ~InterfaceDll() {}
  public:
   static T* CreateInterface(const std::string& module_pathname, \
-   const void* route,
-   const unsigned long& route_size,
+   const void* route = nullptr,
+   const unsigned long& route_size = 0,
    const std::string& __api_object_init = "api_object_init", const std::string& __api_object_uninit = "api_object_uninit") {
    T* result = nullptr;
    HMODULE hModule = nullptr;

@@ -12,8 +12,10 @@ namespace shared {
     [this]() {
      do {    
       Output();
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      if (!m_IsOpen.load() && Empty())
+
+      if(Empty())
+       std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      if (!m_IsOpen.load())
        break;
      } while (1);
     });

@@ -660,7 +660,7 @@ namespace shared {
     }
     return result;
    }
-   //!@ 专用压栈
+   //!@ 专用
    void push_cb(const K& key, const V& val, const std::function<void(V&)>& push_result_cb)
    {
     std::lock_guard<std::mutex> lock(*m_mutex);
@@ -674,6 +674,21 @@ namespace shared {
      m_map.erase(find);
      push_result_cb(m_map[m_map.insert(std::make_pair(key, val)).first->first]);
     }
+   }
+   //!@ 存不存在都回调
+   //!@ 存在返回true 不存在返回false
+   bool pushpush(const K& key, const V& value, const std::function<void(V&)>& cb) {
+    bool result = false;
+    std::lock_guard<std::mutex> lock(*m_mutex);
+    auto found = m_map.find(key);
+    if (found == m_map.end()) {
+     m_map.insert(std::make_pair(key, value));
+    }
+    else {
+     result = true;
+    }
+    cb(m_map[key]);
+    return result;
    }
    //!@ 嵌套队列的插入、提供值队列的引用
    //!@Return 不存在返回false
@@ -695,7 +710,7 @@ namespace shared {
     return result;
    }
    //!说明 : pushpush_cb
-   //!注意 : 存在回调,不存在就插入
+   //!注意 : 不存在回调,存在就插入且不回调
    //!日期 : Thu Jun 11 17:32:35 UTC+0800 2020
    void pushpush_cb(const K& key, const V& val, const std::function<void(V&, bool&)>& push_result_cb)
    {

@@ -20,10 +20,12 @@ namespace local {
  };
  enum class HandleStatus : unsigned long {
   STATUS_UNKNOWN = 0,
-  STATUS_CLOSING = 1,
+  STATUS_NOREADY = STATUS_UNKNOWN,
+  STATUS_ERROR = 1,
   STATUS_CLOSED = 2,
   STATUS_RUNNING = 3,
-  STATUS_ERROR = 4,
+  STATUS_READY = STATUS_RUNNING,
+  STATUS_CLOSING = 4,
  };
 
  enum class HandleType : unsigned long {
@@ -88,7 +90,7 @@ namespace local {
   virtual void Init() = 0;
   virtual void UnInit() = 0;
  public:
-  virtual void* Handle() const = 0;
+  virtual uv_handle_t* Handle() const = 0;
   virtual void Release() const = 0;
   virtual bool Activate() const = 0;
   virtual void Route(void*);
@@ -102,32 +104,16 @@ namespace local {
   std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();
  };
 
- class UvLoop final : public IHandle {
- public:
-  UvLoop(void* caller = nullptr, void* route = nullptr);
-  virtual ~UvLoop();
- protected:
-  void Init() override final;
-  void UnInit() override final;
- public:
-  void* Handle() const override final;
-  void Release() const override final;
-  bool Activate() const override final;
-  void Close();
- private:
-  uv_loop_t* m_uv_loop = nullptr;
- };
-
  class UvHandle final : public IHandle {
  public:
-  UvHandle(const HandleType&, UvLoop* loop = nullptr, void* caller = nullptr, void* route = nullptr);
+  UvHandle(const HandleType&, uv_loop_t* loop = nullptr, void* caller = nullptr, void* route = nullptr);
   virtual ~UvHandle();
  protected:
   void Init() override final;
   void UnInit() override final;
  public:
-  void* Handle() const override final;
-  UvLoop* Loop() const;
+  uv_handle_t* Handle() const override final;
+  uv_loop_t* Loop() const;
   void Release() const override final;
   bool Activate() const override final;
   void AsyncReqType(const AsyncType&);
@@ -137,14 +123,36 @@ namespace local {
   HandleStatus Status() const;
   void UserData(void*);
   void* UserData() const;
+  void Close();
  private:
-  void* m_uv_handle = nullptr;
-  UvLoop* m_pLoop = nullptr;
-  UvHandle* m_pAsync = nullptr;
+  uv_handle_t* handle_ = nullptr;
+  uv_loop_t* loop_ = nullptr;
   const HandleType m_Type;
   std::atomic<AsyncType> m_AsyncReqType = AsyncType::TYPE_UNKNOWN;
   std::atomic<HandleStatus> m_Status = HandleStatus::STATUS_UNKNOWN;
  };
+
+ class UvLoop final {
+  using tfAsyncCb = std::function<void(const uv_async_t*)>;
+  /*std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();*/
+ public:
+  UvLoop();
+  virtual ~UvLoop();
+ protected:
+  void Init();
+  void UnInit();
+ public:
+  uv_loop_t* Handle() const;
+  int Run() const;
+  bool Async(const tfAsyncCb&);
+  void Close();
+ private:
+  uv_loop_t* loop_ = nullptr;
+  uv_async_t* async_ = nullptr;
+  tfAsyncCb async_cb_ = nullptr;
+ };
+
+ 
 
  template<typename T /*uv_handle type*/>
  T* T_GET_HANDLE(UvHandle* uv_handle) {
@@ -192,7 +200,7 @@ namespace local {
  }
 
  template<typename T = UvHandle>
- bool T_CLOSE_HANDLE(T* handle, T* async = nullptr, const time_t& wait = 10000) {
+ bool T_CLOSE_HANDLE(T* handle, T* async = nullptr, const time_t& wait = 5000) {
   auto async_result = std::async(
    [&]()->bool {
     bool result = false;
@@ -216,8 +224,10 @@ namespace local {
      }
      std::time_t total_timeout = 0;
      do {
-      if (total_timeout >= wait)
-       break;
+      if (wait > 0) {
+       if (total_timeout >= wait)
+        break;
+      }
       if (handle->Status() == HandleStatus::STATUS_CLOSED) {
        result = true;
        break;
@@ -240,136 +250,142 @@ namespace local {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
- class Handle final {
+ /////////////////////////////////////////////////////////////////////////////////////////////
+ class IAbstractHandle {
+ protected:
+  IAbstractHandle(void* route)
+   : route_(route) {}
  public:
-  using tfUvWriteCb = std::function<void(uv_write_t*, int)>;
-  enum class Type : unsigned long {
-   UV_UNKNOWN_HANDLE = 0,
-#define XX(uc, lc) UV_##uc,
-   UV_HANDLE_TYPE_MAP(XX)
-#undef XX
-   UV_FILE,
-   UV_LOOP,
-   UV_CONNECT,
-   UV_THREAD,
-   UV_WRITE,
-   UV_PIPE,
-   UV_UDP_SEND,
-   UV_HANDLE_TYPE_MAX
-  };
- public:
-  Handle(const Type&, void* caller = nullptr, Handle* async = nullptr);
-  ~Handle();
- private:
-  void Init(void* caller = nullptr);
-  void UnInit();
- public:
-  template<typename T>
-  inline T* handle() const;
-  const AsyncType& AsyncTypeGet() const;
-  void AsyncTypeSet(const AsyncType&);
-  const HandleStatus& StatusGet() const;
-  void StatusSet(const HandleStatus&);
-  const Type& TypeGet() const;
-  bool AsyncClose(Handle*);
-  bool Close();
-  void Route(Handle*);
-  Handle* Route() const;
-  const Handle* Async() const;
-  void Caller(void*);
-  void* Caller() const;
-  const uv_buf_t& Buf() const;
-  void Buf(const char*, const size_t&);
-  void WriteCb(const tfUvWriteCb&);
-  void WriteCb(uv_write_t*, int) const;
-  bool AsyncWriteRequest();
-  void HandleUserData(void*);
-  void* HandleUserData() const;
- private:
-  const Type m_type;
-  void* m_caller = nullptr;
-  Handle* m_async = nullptr;
-  Handle* m_route = nullptr;
-  uv_buf_t m_uv_buf = { 0 };
-  tfUvWriteCb m_UvWirteCb = nullptr;
-  HandleStatus m_status = HandleStatus::STATUS_UNKNOWN;
-  AsyncType m_async_req_type = AsyncType::TYPE_UNKNOWN;
-  void* m_uv_handle = nullptr;
-  std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();
+  virtual uv_handle_t* handle() const = 0;
+  virtual void uninit() = 0;
+  virtual void init() = 0;
+  virtual void* user_data() const = 0;
+  virtual void user_data(void*) = 0;
+  virtual void* route_data() const = 0;
+  virtual void route_data(void*) = 0;
+ protected:
+  void* route_ = {};
+  uv_handle_t* handle_ = {};
  };
 
- template<typename T>
- inline T* Handle::handle() const {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  return reinterpret_cast<T*>(m_uv_handle);
- }
+ class TLoop {
+  using tfAsyncCb = std::function<void(uv_async_t*)>;
+ public:
+  TLoop() { init(); }
+  ~TLoop() { uninit(); }
+  uv_loop_t* get() const { return loop_; }
+  bool run(const tfAsyncCb& async_cb) {
+   async_cb_ = async_cb;
+   return 0 == uv_async_send(async_);
+  }
+  int run() {
+   return uv_run(loop_, UV_RUN_DEFAULT);
+  }
+ private:
+  void init() {
+   uv_loop_init(loop_);
+   async_->data = this;
+   uv_async_init(loop_, async_,
+    [](uv_async_t* async) {
+     TLoop* _this = reinterpret_cast<TLoop*>(async->data);
+     if (_this && _this->async_cb_)
+      _this->async_cb_(async);
+    });
+  }
+  void uninit() {
+   if (loop_) {
+    uv_stop(loop_);
+    do {
+     uv_walk(loop_, OnWalk, this);
+     if (0 == run())
+      break;
+    } while (1);
+    uv_loop_close(loop_);
+    delete loop_;
+    loop_ = {};
+    async_ = {};
+   }
+  }
+  static void OnClosed(uv_handle_t* handle) {
+   auto i_handle = reinterpret_cast<IAbstractHandle*>(handle);
+   i_handle->uninit();
+   /*delete reinterpret_cast<IAbstractHandle*>(handle);*/
+  }
+  static void OnWalk(uv_handle_t* handle, void* arg) {
+   TLoop* _this = reinterpret_cast<TLoop*>(arg);
+   if (0 == uv_is_closing(handle)) {
+    uv_close(handle, OnClosed);
+   }
+  }
+  uv_loop_t* loop_ = new uv_loop_t;
+  uv_async_t* async_ = new uv_async_t;
+  tfAsyncCb async_cb_ = nullptr;
+ };
 
- template<typename T>
- T* T_GET_HANDLE_USER_DATA(void* uv_user_data) {
-  T* result = nullptr;
-  do {
-   Handle* handle = reinterpret_cast<Handle*>(uv_user_data);
-   if (!handle)
-    break;
-   auto uv_user_data = handle->HandleUserData();
-   if (!uv_user_data)
-    break;
-   result = reinterpret_cast<T*>(uv_user_data);
-  } while (0);
-  return result;
- }
+ template<typename T,
+  typename std::enable_if<
+  std::is_same<T, uv_async_t>::value ||
+  std::is_same<T, uv_check_t>::value ||
+  std::is_same<T, uv_fs_event_t>::value ||
+  std::is_same<T, uv_fs_poll_t>::value ||
+  std::is_same<T, uv_idle_t>::value ||
+  std::is_same<T, uv_pipe_t>::value ||
+  std::is_same<T, uv_poll_t>::value ||
+  std::is_same<T, uv_prepare_t>::value ||
+  std::is_same<T, uv_process_t>::value ||
+  std::is_same<T, uv_signal_t>::value ||
+  std::is_same<T, uv_stream_t>::value ||
+  std::is_same<T, uv_tcp_t>::value ||
+  std::is_same<T, uv_timer_t>::value ||
+  std::is_same<T, uv_tty_t>::value ||
+  std::is_same<T, uv_udp_t>::value>::type* = nullptr>
+ class THandle : public IAbstractHandle {
+ public:
+  THandle(void* udata = nullptr, void* route = nullptr)
+   : IAbstractHandle(route) {
+   handle_ = reinterpret_cast<decltype(handle_)>(new T{ udata });
+   init();
+  }
+  virtual ~THandle() {
+   uninit();
+  }
+  void* user_data() const override {
+   if (!handle_)
+    return nullptr;
+   return handle_->data;
+  }
+  void user_data(void* udata) override {
+   if (handle_)
+    handle_->data = udata;
+  }
+  void* route_data() const override {
+   return route_;
+  }
+  void route_data(void* route) override {
+   route_ = route;
+  }
+  uv_handle_t* handle() const override { return handle_; }
+  T* get() const { return reinterpret_cast<T*>(handle_); }
+ protected:
+  void init() override {
 
- //template<typename T>
- //T* T_GET_HANDLE_CALLER(void* uv_user_data) {
- // T* result = nullptr;
- // do {
- //  Handle* handle = reinterpret_cast<Handle*>(uv_user_data);
- //  if (!handle)
- //   break;
- //  auto caller = handle->Caller();
- //  if (!caller)
- //   break;
- //  result = reinterpret_cast<T*>(caller);
- // } while (0);
- // return result;
- //}
+  }
+  void uninit() override {
+   if (handle_ && !uv_is_closing(handle())) {
+    uv_close(handle(), OnClosed);
+    handle_ = {};
+   }
+  }
+ private:
+  static void OnClosed(uv_handle_t* handle) {
+   delete reinterpret_cast<T*>(handle);
+  }
+ };
 
 
- template<typename T_HANDLE = Handle>
- bool T_SYNC_CLOSE_HANDLE(const T_HANDLE& handle, const std::time_t& timeout = 5000) {
-  auto async_result = std::async(
-   [&]()->bool {
-    if (!handle)
-     return true;
-    bool result = false;
-    if (handle->Close()) {
-     std::time_t total_timeout = 0;
-     do {
-      if (total_timeout >= timeout)
-       break;
-      if (handle->StatusGet() == HandleStatus::STATUS_CLOSED) {
-       result = true;
-       break;
-      }
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
-      total_timeout += 500;
-     } while (1);
-    }
-    return result;
-   });
-  return async_result.get();
- }
+
+
+
 
 }///namespace local
 

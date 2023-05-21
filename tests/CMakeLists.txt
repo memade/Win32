@@ -74,7 +74,7 @@ foreach(entry ${entries})
 			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
 			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
 			)
-  elseif(${origin_entry_name} STREQUAL "libuv_server_test" OR ${origin_entry_name} STREQUAL "libuv_client_test")
+  elseif(${origin_entry_name} STREQUAL "uv_server_test" OR ${origin_entry_name} STREQUAL "uv_client_test")
   	target_include_directories(${origin_entry_name} 
 			PRIVATE 
 			${SOLUTION_INCLUDE_DIR}

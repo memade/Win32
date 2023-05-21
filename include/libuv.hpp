@@ -19,94 +19,91 @@
 namespace libuv {
 
  using TypeIdentify = unsigned long long;
- using TypeSessionIDType = unsigned long;
- using TypeSessionType = unsigned short;
- using TypeIPType = unsigned char;
  using TypeStreamType = unsigned char;
  using TypeZipType = unsigned char;
- using TypeConnectionStatus = unsigned char;
+ using TypeSessionStatus = unsigned char;
  using TypeCommandType = unsigned long;
  using TypeEncryptType = unsigned char;
-
-
- using tf_api_object_init = void* (__stdcall*)(const void*, unsigned long);
- using tf_api_object_uninit = void(__stdcall*)(void);
-
+ using TypeServerType = unsigned long;
+ using TypeIPType = unsigned int;
+ using TypeSessionType = unsigned long long;
 
  enum class IPType : TypeIPType {
-  Unknown = 0x0,
-  IPV4 = 0x1,
-  IPV6 = 0x2,
+  UNKNOWN = 0x0,
+  IPPROTO_IPV4 = IPPROTO::IPPROTO_IPV4,
+  IPPROTO_IPV6 = IPPROTO::IPPROTO_IPV6,
+ };
+
+ enum class ServerType : TypeServerType {
+  UNKNOWN = 0,
+  INITIATOR = 1,
+  ACCEPTOR = 2,
  };
 
  enum class SessionType : TypeSessionType {
-  Unknown = 0x00,
-  TCP_SESSION_CLIENT = 0x11,
-  UDP_SESSION_CLIENT = 0x12,
-  IPC_SESSION_CLIENT = 0x13,
-  TCP_SESSION_SERVER = 0x21,
-  UDP_SESSION_SERVER = 0x22,
-  IPC_SESSION_SERVER = 0x23,
+  UNKNOWN = 0x00,
+  TCP = 0x01,
+  UDP = 0x02,
+  IPC = 0x03,
+  HTTP = 0x04,
  };
 
  // Enum for different connection status types with integer values
- typedef enum class ConnectionStatus : TypeConnectionStatus {
-  Unknown = 0x0,
+ typedef enum class SessionStatus : TypeSessionStatus {
+  UNKNOWN = 0x0,
 
-  Unready = Unknown,//!@ opening or initialize failed.
+  UNREADY = UNKNOWN,//!@ opening or initialize failed.
 
-  InPreparation = 0x1,
-  Ready = 0x2, //!@ Connection is ready
+  INPREPARATION = 0x1,
+  READY = 0x2, //!@ Connection is ready
 
-  ForceClose = 0x3, //!@ Close command has been initiated
+  FORCECLOSE = 0x3, //!@ Close command has been initiated
 
-  Closing = 0x4, //!@ Connection is being closed
-  Stopping = Closing,
-  Closed = 0x5, //!@ Connection is closed and not opened yet
-  Stopped = Closed,
-  Disconnected = Closed, //!@ Connection is completed with failure
+  CLOSING = 0x4, //!@ Connection is being closed
+  STOPPING = CLOSING,
+  CLOSED = 0x5, //!@ Connection is closed and not opened yet
+  STOPPED = CLOSED,
+  DISCONNECTED = CLOSED, //!@ Connection is completed with failure
 
-  Opening = 0x6, //!@ Connection is being opened
-  Connecting = Opening, //!@ Connection is being established
-  Starting = Opening,
-  Opened = 0x7, //!@ Connection is opened successfully
-  Started = Opened,
-  Connected = Opened, //!@ Connection is completed successfully
-  Activate = Opened,
+  OPENING = 0x6, //!@ Connection is being opened
+  CONNECTING = OPENING, //!@ Connection is being established
+  STARTING = OPENING,
+  OPENED = 0x7, //!@ Connection is opened successfully
+  STARTED = OPENED,
+  CONNECTED = OPENED, //!@ Connection is completed successfully
+  ACTIVATE = OPENED,
 
-  ConnectReset = 0x8,//!@ reset action.
-  ConnectExit = 0x9,//!@ module exit.
 
-  Begin = Unready,
-  End = ConnectExit,
- }ClientStatus, ServerStatus, SessionStatus;
+  BEGIN = UNKNOWN,
+  END = ACTIVATE,
+ }ServerStatus;
 
  enum class StreamType : TypeStreamType {
-  Unknown = 0x0,
-  Read = 0x1,
-  Write = 0x2,
+  UNKNOWN = 0x0,
+  READ = 0x1,
+  WRITE = 0x2,
  };
 
  enum class ZipType : TypeZipType {
-  Unknown = 0x0,
+  UNKNOWN = 0x0,
   ZIP = 0x1,
   GZIP = 0x2,
  };
 
  enum class EncryptType : TypeEncryptType {
-  Unknown = 0x0,
+  UNKNOWN = 0x0,
   WEMADE = 0x1,
  };
 
  enum class CommandType : TypeCommandType {
-  Unknown = 0x00000,
-  Welcome = 0x10000,
-  Hello = Welcome,
-  HeartBeat = 0x10100,
-  KeepAlive = HeartBeat,
-  ServerExit = 0x10400,
+  UNKNOWN = 0x00000,
+  WELCOME = 0x10000,
+  HELLO = WELCOME,
+  HEARTBEAT = 0x10100,
+  KEEPALIVE = HEARTBEAT,
  };
 
+#if 0
  static const std::map<SessionType, std::string> SessionTypeString = {
   {SessionType::TCP_SESSION_CLIENT ,"TCP_SESSION_CLIENT"},
   {SessionType::TCP_SESSION_SERVER ,"TCP_SESSION_SERVER"},
@@ -115,6 +112,7 @@ namespace libuv {
   {SessionType::IPC_SESSION_CLIENT ,"IPC_SESSION_CLIENT"},
   {SessionType::IPC_SESSION_SERVER ,"IPC_SESSION_SERVER"},
  };
+#endif
 
  struct IPacketHeader {
   virtual ZipType Zip() const = 0;
@@ -132,24 +130,21 @@ namespace libuv {
 
  class IConfig {
  public:
-  virtual const std::string& IPAddrV4() const = 0;
-  virtual void IPAddrV4(const std::string&) = 0;
-  virtual const std::string& IPAddrV6() const = 0;
-  virtual void IPAddrV6(const std::string&) = 0;
-  virtual const unsigned int& Port() const = 0;
-  virtual void Port(const unsigned int&) = 0;
-  virtual const std::string& PipeName() const = 0;
-  virtual void PipeName(const std::string&) = 0;
-  virtual std::string Address(const SessionType&) const = 0;
+  virtual const ServerType& Server() const = 0;
+  virtual void Session(const SessionType&) = 0;
+  virtual const SessionType& Session() const = 0;
+  virtual void IP(const IPType&) = 0;
+  virtual const IPType& IP() const = 0;
+  virtual void Address(const std::string&) = 0;
+  virtual const std::string& Address() const = 0;
+  virtual unsigned long long SessionTimeoutMS() const = 0;
+  virtual void SessionTimeoutMS(const unsigned long long&) = 0;
+  virtual unsigned long long ClientReconnectionIntervalMS() const = 0;
+  virtual void ClientReconnectionIntervalMS(const unsigned long long&) = 0;
  };
 
  class ISession {
  public:
-  virtual bool Ready() const = 0;
-  virtual SessionStatus Status() const = 0;
-  virtual const SessionType& Type() const = 0;
-  virtual const std::string& Address() const = 0;
-  virtual const TypeIdentify& Identify() const = 0;
  };
 
  class IClient : public shared::InterfaceDll<IClient> {
@@ -157,19 +152,27 @@ namespace libuv {
   virtual IConfig* ConfigGet() const = 0;
   virtual bool Start() = 0;
   virtual void Stop() = 0;
-  virtual ConnectionStatus ConnStatus() const = 0;
+  virtual SessionStatus Status() const = 0;
   virtual void Release() const = 0;
-  virtual unsigned long SessionCount() const = 0;
  };
 
  class IServer : public shared::InterfaceDll<IServer> {
+ protected:
+  using tfOnAcceptCb = std::function<void(ISession*)>;
+  using tfOnSessionAppendBeforeCb = std::function<void(ISession*)>;
+  using tfOnSessionRemoveBeforeCb = std::function<void(ISession*)>;
+  using tfOnReceiveReply = std::function<void(ISession*, const std::string& receive, std::string& reply)>;
  public:
   virtual IConfig* ConfigGet() const = 0;
   virtual bool Start() = 0;
   virtual void Stop() = 0;
-  virtual const SessionType& Type() const = 0;
+  virtual ServerStatus Status() const = 0;
   virtual void Release() const = 0;
   virtual unsigned long SessionCount() const = 0;
+  virtual void RegisterOnAcceptCb(const tfOnAcceptCb&) = 0;
+  virtual void RegisterOnReceiveReply(const tfOnReceiveReply&) = 0;
+  virtual void RegisterOnSessionAppendBeforeCb(const tfOnSessionAppendBeforeCb&) = 0;
+  virtual void RegisterOnSessionRemoveBeforeCb(const tfOnSessionRemoveBeforeCb&) = 0;
  };
 
 }///namespace libuv

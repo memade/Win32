@@ -1,9 +1,11 @@
 ﻿#include "stdafx.h"
 
 namespace local {
- Session::Session(const SessionType& type, void* server)
+ Session::Session(const SessionType& type, Server* server, const struct sockaddr* psockaddr)
   : m_SessionType(type)
   , m_pServer(server) {
+  if (psockaddr)
+   memcpy(&m_SockAddr, psockaddr, sizeof(struct sockaddr));
   Init();
  }
  Session::~Session() {
@@ -12,7 +14,6 @@ namespace local {
  void Session::UnInit() {
   SK_DELETE_PTR(m_pReadStream);
   SK_DELETE_PTR(m_pWriteStream);
-  SK_DELETE_PTR(m_pSockAddr);
   SK_DELETE_PTR(m_pUvClient);
   SK_DELETE_PTR(m_pUvAsync);
   SK_DELETE_PTR(m_pUvLoop);
@@ -24,15 +25,14 @@ namespace local {
  void Session::Init() {
   m_Status.store(SessionStatus::Unready);
 
-  m_pSockAddr = new struct sockaddr;
   m_pReadStream = new Stream(0xFFFF, StreamType::Read);
   m_pWriteStream = new Stream(0xFFFF, StreamType::Write);
 
   switch (m_SessionType) {
   case SessionType::IPC_SESSION_CLIENT: {
    m_pUvLoop = new UvLoop();
-   m_pUvAsync = new UvHandle(HandleType::UV_ASYNC, m_pUvLoop, this);
-   m_pUvClient = new UvHandle(HandleType::UV_PIPE_1, m_pUvLoop, this);
+   m_pUvAsync = new UvHandle(HandleType::UV_ASYNC, m_pUvLoop->Handle(), this);
+   m_pUvClient = new UvHandle(HandleType::UV_PIPE_1, m_pUvLoop->Handle(), this);
    m_pUvConnect = reinterpret_cast<uv_connect_t*>(malloc(sizeof uv_connect_t));
    if (!m_pUvConnect)
     break;
@@ -40,12 +40,11 @@ namespace local {
    m_Status.store(SessionStatus::Ready);
   }break;
   case SessionType::IPC_SESSION_SERVER: {
-   Server* pServer = reinterpret_cast<Server*>(m_pServer);
-   if (!pServer)
+   if (!m_pServer)
     break;
-   m_pUvAsync = new UvHandle(HandleType::UV_ASYNC, pServer->LoopHandle(), this);
-   m_pUvClient = new UvHandle(HandleType::UV_PIPE_1, pServer->LoopHandle(), this);
-   if (0 != uv_accept(T_GET_HANDLE<uv_stream_t>(pServer->ServerHandle()), T_GET_HANDLE<uv_stream_t>(m_pUvClient)))
+   m_pUvAsync = new UvHandle(HandleType::UV_ASYNC, m_pServer->LoopHandle()->Handle(), this);
+   m_pUvClient = new UvHandle(HandleType::UV_PIPE_1, m_pServer->LoopHandle()->Handle(), this);
+   if (0 != uv_accept(T_GET_HANDLE<uv_stream_t>(m_pServer->ServerHandle()), T_GET_HANDLE<uv_stream_t>(m_pUvClient)))
     break;
    m_Identify = Protocol::make_pipe_session_identify(m_SessionType);
    if (m_Identify <= 0)
@@ -55,8 +54,8 @@ namespace local {
   }break;
   case SessionType::TCP_SESSION_CLIENT: {
    m_pUvLoop = new UvLoop();
-   m_pUvAsync = new UvHandle(HandleType::UV_ASYNC, m_pUvLoop, this);
-   m_pUvClient = new UvHandle(HandleType::UV_TCP, m_pUvLoop, this);
+   m_pUvAsync = new UvHandle(HandleType::UV_ASYNC, m_pUvLoop->Handle(), this);
+   m_pUvClient = new UvHandle(HandleType::UV_TCP, m_pUvLoop->Handle(), this);
    m_pUvConnect = reinterpret_cast<uv_connect_t*>(malloc(sizeof uv_connect_t));
    if (!m_pUvConnect)
     break;
@@ -64,17 +63,16 @@ namespace local {
    m_Status.store(SessionStatus::Ready);
   }break;
   case SessionType::TCP_SESSION_SERVER: {
-   Server* pServer = reinterpret_cast<Server*>(m_pServer);
-   if (!pServer)
+   if (!m_pServer)
     break;
-   m_pUvAsync = new UvHandle(HandleType::UV_ASYNC, pServer->LoopHandle(), this);
-   m_pUvClient = new UvHandle(HandleType::UV_TCP, pServer->LoopHandle(), this);
-   if (0 != uv_accept(T_GET_HANDLE<uv_stream_t>(pServer->ServerHandle()), T_GET_HANDLE<uv_stream_t>(m_pUvClient)))
+   m_pUvAsync = new UvHandle(HandleType::UV_ASYNC, m_pServer->LoopHandle()->Handle(), this);
+   m_pUvClient = new UvHandle(HandleType::UV_TCP, m_pServer->LoopHandle()->Handle(), this);
+   if (0 != uv_accept(T_GET_HANDLE<uv_stream_t>(m_pServer->ServerHandle()), T_GET_HANDLE<uv_stream_t>(m_pUvClient)))
     break;
    int len = sizeof(sockaddr);
-   if (0 != uv_tcp_getpeername(T_GET_HANDLE<uv_tcp_t>(m_pUvClient), m_pSockAddr, &len))
+   if (0 != uv_tcp_getpeername(T_GET_HANDLE<uv_tcp_t>(m_pUvClient), &m_SockAddr, &len))
     break;
-   m_Identify = Protocol::make_sock_session_identify(m_SessionType, *m_pSockAddr);
+   m_Identify = Protocol::make_sock_session_identify(m_SessionType, m_SockAddr);
    if (m_Identify <= 0)
     break;
    m_Address = Protocol::unmake_sock_session_identify(m_Identify);
@@ -83,21 +81,21 @@ namespace local {
   }break;
   case SessionType::UDP_SESSION_CLIENT: {
    m_pUvLoop = new UvLoop();
-   m_pUvAsync = new UvHandle(HandleType::UV_ASYNC, m_pUvLoop, this);
-   m_pUvClient = new UvHandle(HandleType::UV_UDP, m_pUvLoop, this);
+   /*m_pUvAsync = new UvHandle(HandleType::UV_ASYNC, m_pUvLoop->Handle(), this);*/
+   m_pUvClient = new UvHandle(HandleType::UV_UDP, m_pUvLoop->Handle(), this);
    m_Status.store(SessionStatus::Ready);
   }break;
   case SessionType::UDP_SESSION_SERVER: {
-#if 0
-   Server* pServer = reinterpret_cast<Server*>(m_pServer);
-   if (!pServer)
+   if (!m_pServer)
     break;
-   m_pUvAsync = new UvHandle(HandleType::UV_ASYNC, pServer->LoopHandle(), this);
-   //m_pUvClient = new UvHandle(HandleType::UV_UDP, pServer->LoopHandle(), this);
-   m_pUvClient = pServer->ServerHandle();
-   //Welcome();
+   m_pUvAsync = new UvHandle(HandleType::UV_ASYNC, m_pServer->LoopHandle()->Handle(), this);
+   if (!Protocol::parser_ipaddr((const sockaddr_storage*)&m_SockAddr, m_IPV4, m_Port))
+    break;
+   m_Identify = Protocol::make_sock_session_identify(SessionType::UDP_SESSION_SERVER, m_SockAddr);
+   if (m_Identify <= 0)
+    break;
+   m_Address = Protocol::unmake_sock_session_identify(m_Identify);
    m_Status.store(SessionStatus::Ready);
-#endif
   }break;
   default:
    break;
@@ -107,10 +105,6 @@ namespace local {
  const TypeIdentify& Session::Identify() const {
   std::lock_guard<std::mutex> lock{ *m_Mutex };
   return m_Identify;
- }
- void Session::Identify(const TypeIdentify& identify) {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  m_Identify = identify;
  }
  void Session::Address(const std::string& address) {
   std::lock_guard<std::mutex> lock{ *m_Mutex };
@@ -124,14 +118,9 @@ namespace local {
   std::lock_guard<std::mutex> lock{ *m_Mutex };
   return m_IPV4;
  }
- void Session::SockAddr(const struct sockaddr* addr) {
+ const struct sockaddr& Session::SockAddr() const {
   std::lock_guard<std::mutex> lock{ *m_Mutex };
-  if (addr)
-   memcpy(m_pSockAddr, addr, sizeof(struct sockaddr));
- }
- const struct sockaddr* Session::SockAddr() const {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  return m_pSockAddr;
+  return m_SockAddr;
  }
  const u_short& Session::Port() const {
   std::lock_guard<std::mutex> lock{ *m_Mutex };
@@ -139,8 +128,7 @@ namespace local {
  }
  bool Session::Ready() const {
   std::lock_guard<std::mutex> lock{ *m_Mutex };
-  //return m_Status == SessionStatus::Ready && m_Ready.load();
-  return false;
+  return m_Status.load() == SessionStatus::Ready || m_Status.load() == SessionStatus::Started;
  }
  SessionStatus Session::Status() const {
   std::lock_guard<std::mutex> lock{ *m_Mutex };
@@ -150,9 +138,9 @@ namespace local {
   std::lock_guard<std::mutex> lock{ *m_Mutex };
   m_Status.store(status);
  }
- bool Session::Start(const std::string& address /*= ""*/, const tfConnectCb& connect_cb /*= nullptr*/) {
+ bool Session::Start(const std::string& address, const tfConnectCb& connect_cb) {
   std::lock_guard<std::mutex> lock{ *m_Mutex };
-  if (m_Status.load() != SessionStatus::Ready)
+  if (m_Status.load() != SessionStatus::Ready && m_Status.load() != SessionStatus::Opened)
    return false;
   switch (m_Status.load()) {
   case SessionStatus::Unready:
@@ -181,7 +169,6 @@ namespace local {
     break;
    if (!m_pUvClient)
     break;
-   reinterpret_cast<Server*>(m_pServer)->PushSession(m_Identify, this);
    if (0 != uv_read_start(T_GET_HANDLE<uv_stream_t>(m_pUvClient), AllocCb, ReadCb))
     break;
    m_Status.store(SessionStatus::Started);
@@ -199,9 +186,9 @@ namespace local {
     break;
    if (uv_ip4_addr(ip.c_str(), port, &addr) != 0)
     break;
-   memcpy(m_pSockAddr, &addr, sizeof(struct sockaddr));
-   m_Identify = Protocol::make_sock_session_identify(m_SessionType, *m_pSockAddr);
-   if (Protocol::parser_ipaddr((const sockaddr_storage*)m_pSockAddr, m_IPV4, m_Port))
+   memcpy(&m_SockAddr, &addr, sizeof(struct sockaddr));
+   m_Identify = Protocol::make_sock_session_identify(m_SessionType, m_SockAddr);
+   if (Protocol::parser_ipaddr((const sockaddr_storage*)&m_SockAddr, m_IPV4, m_Port))
     m_Address = m_IPV4 + ":" + std::to_string(m_Port);
    if (0 != uv_tcp_connect(m_pUvConnect, T_GET_HANDLE<uv_tcp_t>(m_pUvClient), (const struct sockaddr*)&addr, ConnectCb))
     break;
@@ -213,7 +200,6 @@ namespace local {
     break;
    if (!m_pUvClient)
     break;
-   reinterpret_cast<Server*>(m_pServer)->PushSession(m_Identify, this);
    if (0 != uv_read_start((uv_stream_t*)m_pUvClient->Handle(), AllocCb, ReadCb))
     break;
    m_Status.store(SessionStatus::Started);
@@ -231,13 +217,13 @@ namespace local {
     break;
    if (uv_ip4_addr(ip.c_str(), port, &addr) != 0)
     break;
-   memcpy(m_pSockAddr, &addr, sizeof(struct sockaddr));
-   m_Identify = Protocol::make_sock_session_identify(m_SessionType, *m_pSockAddr);
-   if (Protocol::parser_ipaddr((const sockaddr_storage*)m_pSockAddr, m_IPV4, m_Port))
+   memcpy(&m_SockAddr, &addr, sizeof(struct sockaddr));
+   m_Identify = Protocol::make_sock_session_identify(m_SessionType, m_SockAddr);
+   if (Protocol::parser_ipaddr((const sockaddr_storage*)&m_SockAddr, m_IPV4, m_Port))
     m_Address = m_IPV4 + ":" + std::to_string(m_Port);
-   if (0 != uv_udp_connect(T_GET_HANDLE<uv_udp_t>(m_pUvClient), m_pSockAddr))
+   if (0 != uv_udp_connect(T_GET_HANDLE<uv_udp_t>(m_pUvClient), &m_SockAddr))
     break;
-   if (0 != uv_udp_recv_start(T_GET_HANDLE<uv_udp_t>(m_pUvClient), AllocCb, OnUdpRecvCb))
+   if (0 != uv_udp_recv_start(T_GET_HANDLE<uv_udp_t>(m_pUvClient), AllocCb, OnUdpReadCb))
     break;
    m_Threads.emplace_back([this]() {uv_run((uv_loop_t*)m_pUvLoop->Handle(), UV_RUN_DEFAULT); });
    m_Status.store(SessionStatus::Started);
@@ -250,12 +236,6 @@ namespace local {
   case SessionType::UDP_SESSION_SERVER: {
    if (m_Identify <= 0)
     break;
-   if (!m_pUvClient)
-    break;
-#if 0
-   if (0 != uv_read_start((uv_stream_t*)m_pUvClient->Handle(), AllocCb, ReadCb))
-    break;
-#endif
    m_Status.store(SessionStatus::Started);
   }break;
   default:
@@ -265,9 +245,11 @@ namespace local {
  }
  void Session::Stop() {
   std::lock_guard<std::mutex> lock{ *m_Mutex };
+  std::cout << __FUNCTION__ << std::endl;
   do {
    if (m_Status.load() == SessionStatus::Unready)
     break;
+   m_Status.store(SessionStatus::Closing);
    switch (m_SessionType) {
    case SessionType::IPC_SESSION_CLIENT: {
     T_CLOSE_HANDLE(m_pUvClient, m_pUvAsync);
@@ -296,8 +278,12 @@ namespace local {
     T_CLOSE_HANDLE(m_pUvAsync, m_pUvAsync);
    }break;
    case SessionType::UDP_SESSION_CLIENT: {
-    T_CLOSE_HANDLE(m_pUvClient, m_pUvAsync);
+#if 0
+    if (!T_CLOSE_HANDLE(m_pUvClient, m_pUvAsync))
+     ::exit(0);
     T_CLOSE_HANDLE(m_pUvAsync, m_pUvAsync);
+#endif
+    m_pUvClient->Close();
     m_pUvLoop->Close();
     Protocol::uv_close_default_loop();
     for (auto& it : m_Threads)
@@ -305,10 +291,7 @@ namespace local {
     m_Threads.clear();
    }break;
    case SessionType::UDP_SESSION_SERVER: {
-#if 0
-    T_CLOSE_HANDLE(m_pUvClient, m_pUvAsync);
     T_CLOSE_HANDLE(m_pUvAsync, m_pUvAsync);
-#endif
    }break;
    default:
     break;
@@ -316,7 +299,7 @@ namespace local {
 
   } while (0);
 
-  m_Status.store(SessionStatus::Unready);
+  m_Status.store(SessionStatus::Closed);
  }
  void Session::ForceClose() {
   std::lock_guard<std::mutex> lock{ *m_Mutex };
@@ -383,9 +366,9 @@ namespace local {
     m_pUvAsync->AsyncReqType(AsyncType::TYPE_WRITE);
     m_pUvAsync->Route(req);
    }break;
-   case SessionType::UDP_SESSION_SERVER:
-    [[fallthrough]];
-   case SessionType::UDP_SESSION_CLIENT: {
+   case SessionType::UDP_SESSION_SERVER: {
+    if (!m_pServer || !m_pServer->ServerHandle())
+     break;
     UvWirte* req = new UvWirte(
      [&](void* route, int status) {
       if (status != 0) {
@@ -394,17 +377,53 @@ namespace local {
         session->ForceClose();
       }
      }, send_pak, this);
-    *req << m_pUvClient->Handle();
-    if (SessionType::UDP_SESSION_SERVER == m_SessionType) {
-     *req << *m_pSockAddr;
-    }
+    *req << m_pServer->ServerHandle()->Handle();
+    *req << m_SockAddr;
     m_pUvAsync->AsyncReqType(AsyncType::TYPE_WRITE_UDP);
     m_pUvAsync->Route(req);
+   }break;
+   case SessionType::UDP_SESSION_CLIENT: {
+    m_pUvLoop->Async(
+     [this, send_pak](const uv_async_t* async) {
+      do {
+       UvWirte* write_req = new UvWirte(
+        [&](void* route, int status) {
+         if (status != 0) {
+          auto session = reinterpret_cast<Session*>(route);
+          if (session)
+           session->ForceClose();
+         }
+        }, send_pak, this);
+       *write_req << m_pUvClient->Handle();
+       if (!write_req)
+        break;
+       int status = uv_udp_send(
+        &write_req->write_udp,
+        (uv_udp_t*)write_req->handle,
+        &write_req->buf,
+        1,
+        write_req->addr.sa_family ? &write_req->addr : NULL,
+        [](uv_udp_send_t* req, int status) {
+         UvWirte* write_req = reinterpret_cast<UvWirte*>(req->data);
+         if (write_req && write_req->write_cb)
+          write_req->write_cb(write_req->route, status);
+         SK_DELETE_PTR(write_req);
+        });
+       if (status == 0)
+        break;
+       if (write_req && write_req->write_cb)
+        write_req->write_cb(write_req->route, status);
+       SK_DELETE_PTR(write_req);
+      } while (0);
+     
+     });
+    /*m_pUvAsync->AsyncReqType(AsyncType::TYPE_WRITE_UDP);
+    m_pUvAsync->Route(req);*/
    }break;
    default:
     break;
    }
-   if (0 != uv_async_send(T_GET_HANDLE<uv_async_t>(m_pUvAsync)))
+   if (m_pUvAsync && 0 != uv_async_send(T_GET_HANDLE<uv_async_t>(m_pUvAsync)))
     break;
    result = true;
   } while (0);
@@ -491,7 +510,7 @@ namespace local {
   if (force_close)
    pSession->ForceClose();
  }
- void Session::OnUdpRecvCb(uv_udp_t* client, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags) {
+ void Session::OnUdpReadCb(uv_udp_t* client, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags) {
   Session* pSession = T_GET_HANDLE_CALLER<Session>(client);
   do {
    if (!pSession)

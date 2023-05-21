@@ -19,11 +19,13 @@ namespace local {
   unsigned long SessionCount() const override final;
   UvLoop* LoopHandle() const;
   UvHandle* ServerHandle() const;
-  UvHandle* AsyncHandle() const;
-  void PushSession(const TypeIdentify&,Session*);
+ protected:
+  void RegisterOnAcceptCb(const tfOnAcceptCb&) override final;
+  void RegisterOnReceiveReply(const tfOnReceiveReply&) override final;
+  void RegisterOnSessionAppendBeforeCb(const tfOnSessionAppendBeforeCb&) override final;
+  void RegisterOnSessionRemoveBeforeCb(const tfOnSessionRemoveBeforeCb&) override final;
  private:
   void Process();
-  UvHandle* Handle() const;
   static void OnConnect(uv_stream_t* server, int status);
   static void OnUdpAlloc(uv_handle_t* server, size_t suggested_size, uv_buf_t* buf);
   static void OnUdpRead(uv_udp_t* server, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags);
@@ -31,14 +33,16 @@ namespace local {
   const SessionType m_SessionType;
   std::atomic_bool m_IsOpen = false;
   Config* m_pConfig = nullptr;
-  Stream* m_pReadStream = nullptr;
-  Stream* m_pWriteStream = nullptr;
   UvLoop* m_pLoop = nullptr;
   UvHandle* m_pServer = nullptr;
-  UvHandle* m_pAsync = nullptr;
   std::vector<std::thread> m_Threads;
   shared::container::map<TypeIdentify, Session*> m_Sessions;
   std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();
+ protected:
+  tfOnAcceptCb m_OnAcceptCb = nullptr;
+  tfOnReceiveReply m_OnReceiveReply = nullptr;
+  tfOnSessionAppendBeforeCb m_OnAppendBeforeCb = nullptr;
+  tfOnSessionRemoveBeforeCb m_OnRemoveBeforeCb = nullptr;
  };
 
  extern Server* __gpServer;

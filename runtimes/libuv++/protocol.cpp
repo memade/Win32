@@ -1,40 +1,6 @@
 ﻿#include "stdafx.h"
 
 namespace local {
- ////////////////////////////////////////////////////////////////////////////////////////////////////////
- tagPacketHeader::tagPacketHeader() {
-  memset(this, 0x00, sizeof(*this));
-  header_logo = 0xFAC9C2D0;
-  footer_logo = 0xB4B4AAC1;
- }
- tagPacketHeader::tagPacketHeader(const CommandType& input_cmd) {
-  memset(this, 0x00, sizeof(*this));
-  header_logo = 0xFAC9C2D0;
-  footer_logo = 0xB4B4AAC1;
-  command_code = static_cast<decltype(command_code)>(input_cmd);
- }
- bool tagPacketHeader::Verify() const {
-  return header_logo == 0xFAC9C2D0 && footer_logo == 0xB4B4AAC1;
- }
- ZipType tagPacketHeader::Zip() const {
-  return ZipType(zip_type);
- }
- EncryptType tagPacketHeader::Encrypt() const {
-  return EncryptType(encryption_type);
- }
- CommandType tagPacketHeader::Command() const {
-  return CommandType(command_code);
- }
- unsigned long tagPacketHeader::DataSize() const {
-  return data_size;
- }
- unsigned long tagPacketHeader::OriginalSize() const {
-  return original_size;
- }
- unsigned long tagPacketHeader::PacketSize() const {
-  return packet_size;
- }
-
 
  Protocol::Protocol() {
 
@@ -259,32 +225,6 @@ namespace local {
    uv_loop_close(default_loop_);
   } while (0);
  }
- void Protocol::uv_close_loop(void* uv_handle_loop) {
-  auto default_loop_ = uv_default_loop();
-  do {
-   if (!default_loop_)
-    break;
-   uv_walk(default_loop_,
-    [](uv_handle_t* handle, void* arg) {
-     if (!uv_is_closing(handle))
-      uv_close(handle, NULL);
-    }, NULL);
-   uv_run(default_loop_, UV_RUN_DEFAULT);
-   uv_loop_close(default_loop_);
-  } while (0);
-  do {
-   if (!uv_handle_loop)
-    break;
-   auto loop_handle = reinterpret_cast<Handle*>(uv_handle_loop);
-   uv_walk(loop_handle->handle<uv_loop_t>(),
-    [](uv_handle_t* handle, void* arg) {
-     if (!uv_is_closing(handle))
-      uv_close(handle, NULL);
-    }, NULL);
-   uv_run(loop_handle->handle<uv_loop_t>(), UV_RUN_DEFAULT);
-   uv_loop_close(loop_handle->handle<uv_loop_t>());
-  } while (0);
- }
  void Protocol::uv_async_cb(uv_async_t* async_handle) {
   if (!async_handle)
    return;
@@ -303,8 +243,7 @@ namespace local {
    UvWirte* write_req = reinterpret_cast<UvWirte*>(t_handle->Route());
    if (!write_req)
     break;
-   int status = -1;
-   if (status = uv_write(
+   int status = uv_write(
     &write_req->write,
     (uv_stream_t*)write_req->handle,
     &write_req->buf,
@@ -314,18 +253,18 @@ namespace local {
      if (write_req && write_req->write_cb)
       write_req->write_cb(write_req->route, status);
      SK_DELETE_PTR(write_req);
-    }) == 0)
+    });
+   if (status == 0)
     break;
-    if (write_req && write_req->write_cb)
-     write_req->write_cb(write_req->route, status);
-    SK_DELETE_PTR(write_req);
+   if (write_req && write_req->write_cb)
+    write_req->write_cb(write_req->route, status);
+   SK_DELETE_PTR(write_req);
   }break;
   case AsyncType::TYPE_WRITE_UDP: {
    UvWirte* write_req = reinterpret_cast<UvWirte*>(t_handle->Route());
    if (!write_req)
     break;
-   int status = -1;
-   if (status = uv_udp_send(
+   int status = uv_udp_send(
     &write_req->write_udp,
     (uv_udp_t*)write_req->handle,
     &write_req->buf,
@@ -336,165 +275,52 @@ namespace local {
      if (write_req && write_req->write_cb)
       write_req->write_cb(write_req->route, status);
      SK_DELETE_PTR(write_req);
-    }) == 0)
-    break;
-    //if (UV_EISCONN == status) {
-    // auto sksksksk = 0;
-    //}
-    if (write_req && write_req->write_cb)
-     write_req->write_cb(write_req->route, status);
-    SK_DELETE_PTR(write_req);
-  }break;
-  default:
-   break;
-  }
-
-
-#if 0
-  auto pAsync = reinterpret_cast<Handle*>(async_handle->data);
-  switch (pAsync->AsyncTypeGet()) {
-  case AsyncType::TYPE_WRITE: {
-   auto write_req = pAsync->Route();
-   if (!write_req)
-    break;
-   int write_ret = uv_write(write_req->handle<uv_write_t>(), (uv_stream_t*)write_req->Caller(), &write_req->Buf(), 1,
-    [](uv_write_t* req, int status) {
-     auto handle = reinterpret_cast<Handle*>(req->data);
-     handle->WriteCb(req, status);
-     SK_DELETE_PTR(handle);
     });
-   if (0 == write_ret)
+   if (status == 0)
     break;
-   write_req->WriteCb(nullptr, -0xFFFF);
+   if (write_req && write_req->write_cb)
+    write_req->write_cb(write_req->route, status);
    SK_DELETE_PTR(write_req);
   }break;
-  case AsyncType::TYPE_WRITE_UDP_CLIENT_SESSION: {
-#if 0
-   auto write_req = pAsync->Route();
-   auto write_target = write_req->Route();
-   int write_ret = -1;
-   if (write_ret = uv_udp_send(
-    (uv_udp_send_t*)write_req->handle(),
-    (uv_udp_t*)write_target->handle(),
-    &write_req->Buffer(),
-    1,
-    NULL,
-    [](uv_udp_send_t* req, int status) {
-     Handle* handle = reinterpret_cast<Handle*>(req->data);
-     //handle->AsyncCb(&status);
-     handle->Release();
-    }) == 0)
-    break;
-    //write_req->AsyncCb(&write_ret);
-    write_req->Release();
-#endif
-  }break;
-  case AsyncType::TYPE_WRITE_UDP_SERVER_SESSION: {
-#if 0
-   auto write_req = pAsync->Route();
-   auto write_target = write_req->Route();
-   int write_ret = -1;
-   if (write_ret = uv_udp_send(
-    (uv_udp_send_t*)write_req->handle(),
-    (uv_udp_t*)write_target->handle(),
-    &write_req->Buffer(),
-    1,
-    write_req->SockAddr(),
-    [](uv_udp_send_t* req, int status) {
-     Handle* handle = reinterpret_cast<Handle*>(req->data);
-     //handle->AsyncCb(&status);
-     handle->Release();
-    }) == 0)
-    break;
-    //write_req->AsyncCb(&write_ret);
-    write_req->Release();
-#endif
-  }break;
-  case AsyncType::TYPE_CLOSE_HANDLE: {
-   auto uv_handle = pAsync->Route();
-   uv_close(uv_handle->handle<uv_handle_t>(),
-    [](uv_handle_t* handle) {
-     auto pHandle = reinterpret_cast<Handle*>(handle->data);
-     //pHandle->CloseCb();
-     pHandle->StatusSet(HandleStatus::STATUS_CLOSED);
-    });
-  }break;
-  case AsyncType::TYPE_CLOSE_ASYNC_HANDLE: {
-  }break;
   default:
    break;
   }
-
-  auto sk = 0;
-#if 0
-  static auto udp_send_cb =
-   [](uv_udp_send_t* req, int status) {
-   udp_write_req_t* request = (udp_write_req_t*)req;
-   SK_DELETE_PTR(request->buf.base);
-   SK_DELETE_PTR(request);
-  };
-  async_req_t* async = (async_req_t*)async_handle->data;
-  Session* pSession = (Session*)async->host;
-  switch (async->req_type) {
-  case async_req_type::WritePrivateUdp: {
-   int write_ret = -1;
-   udp_write_req_t* req = (udp_write_req_t*)async->data;
-   switch (pSession->SessionType()) {
-   case EnSessionType::UDP_SESSION_CLIENT: {
-    write_ret = uv_udp_send(&req->req, (uv_udp_t*)req->handle, &req->buf, 1, NULL, udp_send_cb);
-   }break;
-   case EnSessionType::UDP_SESSION_SERVER: {
-    write_ret = uv_udp_send(&req->req, (uv_udp_t*)req->handle, &req->buf, 1, &req->saddr, udp_send_cb);
-   }break;
-   default:
-    break;
-   }
-   if (0 == write_ret)
-    break;
-   SK_DELETE_PTR(req->buf.base);
-   SK_DELETE_PTR(req);
-   pSession->ForceClose();
-  }break;
-  case async_req_type::Write: {
-   write_req_t* req = (write_req_t*)async->data;
-   int write_ret = uv_write((uv_write_t*)req, (uv_stream_t*)req->handle, &req->buf, 1,
-    [](uv_write_t* req, int status) {
-     write_req_t* request = (write_req_t*)req;
-     SK_DELETE_PTR(request->buf.base);
-     SK_DELETE_PTR(request);
-    });
-   if (0 == write_ret)
-    break;
-   SK_DELETE_PTR(req->buf.base);
-   SK_DELETE_PTR(req);
-   pSession->ForceClose();
-  }break;
-  case async_req_type::CloseHandle: {
-   uv_close((uv_handle_t*)async_handle,
-    [](uv_handle_t* handle) {
-     auto sk = 0;
-    });
-
-   //if (!pSession->uv_client_)
-   // break;
-   //uv_close((uv_handle_t*)pSession->uv_client_,
-   // [](uv_handle_t* handle) {
-   //  Session* pSession = (Session*)handle->data;
-   //  pSession->m_Status.store(SessionStatus::Closed);
-   // });
-  }break;
-  case async_req_type::CloseAsyncHandle: {
-
-   auto sk = 0;
-  }break;
-  default:
-   break;
-  }
-  SK_DELETE_PTR(async);
-#endif
-
-#endif
  }
+
+ ////////////////////////////////////////////////////////////////////////////////////////////////////////
+ tagPacketHeader::tagPacketHeader() {
+  memset(this, 0x00, sizeof(*this));
+  header_logo = 0xFAC9C2D0;
+  footer_logo = 0xB4B4AAC1;
+ }
+ tagPacketHeader::tagPacketHeader(const CommandType& input_cmd) {
+  memset(this, 0x00, sizeof(*this));
+  header_logo = 0xFAC9C2D0;
+  footer_logo = 0xB4B4AAC1;
+  command_code = static_cast<decltype(command_code)>(input_cmd);
+ }
+ bool tagPacketHeader::Verify() const {
+  return header_logo == 0xFAC9C2D0 && footer_logo == 0xB4B4AAC1;
+ }
+ ZipType tagPacketHeader::Zip() const {
+  return ZipType(zip_type);
+ }
+ EncryptType tagPacketHeader::Encrypt() const {
+  return EncryptType(encryption_type);
+ }
+ CommandType tagPacketHeader::Command() const {
+  return CommandType(command_code);
+ }
+ unsigned long tagPacketHeader::DataSize() const {
+  return data_size;
+ }
+ unsigned long tagPacketHeader::OriginalSize() const {
+  return original_size;
+ }
+ unsigned long tagPacketHeader::PacketSize() const {
+  return packet_size;
+ }
+
  const std::uint64_t TIMEOUT_HEARBEAT_MS = 30000;
  const size_t PACKET_HEAD_SIZE = sizeof(HEAD);
  const size_t PACKET_COMPRESSION_STANDARD_SIZE = 512;

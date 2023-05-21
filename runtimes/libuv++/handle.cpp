@@ -1,6 +1,7 @@
 ﻿#include "stdafx.h"
 
 namespace local {
+ //////////////////////////////////////////////////////////////////////////////////////////////
  IHandle::IHandle(void* caller, void* route)
   : m_pCaller(caller)
   , m_pRoute(route) {
@@ -23,51 +24,103 @@ namespace local {
   return m_pCaller;
  }
  //////////////////////////////////////////////////////////////////////////////////////////////
- UvLoop::UvLoop(void* caller, void* route) : IHandle(caller, route) {
+ UvLoop::UvLoop() {
   Init();
  }
- UvLoop:: ~UvLoop() {
+ UvLoop::~UvLoop() {
   UnInit();
  }
  void UvLoop::Init() {
-  m_uv_loop = reinterpret_cast<uv_loop_t*>(malloc(sizeof uv_loop_t));
-  if (m_uv_loop) {
-   m_uv_loop->data = this;
-   uv_loop_init(m_uv_loop);
-  }
+  loop_ = new uv_loop_t;
+  async_ = new uv_async_t;
+  loop_->data = this;
+  async_->data = this;
+  uv_loop_init(loop_);
+  uv_async_init(loop_, async_,
+   [](uv_async_t* async) {
+    auto loop = reinterpret_cast<UvLoop*>(async->data);
+    loop->async_cb_(async);
+   });
  }
  void UvLoop::UnInit() {
-  SK_DELETE_PTR_C(m_uv_loop);
+  SK_DELETE_PTR(async_);
+  SK_DELETE_PTR(loop_);
  }
- void* UvLoop::Handle() const {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  return reinterpret_cast<void*>(m_uv_loop);
+ uv_loop_t* UvLoop::Handle() const {
+  return loop_;
  }
- void UvLoop::Release() const {
-  delete this;
+ int UvLoop::Run() const {
+  return uv_run(loop_, UV_RUN_DEFAULT);
  }
- bool UvLoop::Activate() const {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  return true;
+ bool UvLoop::Async(const tfAsyncCb& async_cb) {
+  bool result = false;
+  do {
+   async_cb_ = async_cb;
+   if (0 != uv_async_send(async_)) {
+    std::cout << "uv_async_send error." << std::endl;
+    break;
+   }
+   result = true;
+  } while (0);
+  return result;
  }
- void UvLoop::Close() {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  if (!m_uv_loop)
-   return;
-  uv_walk(m_uv_loop,
-   [](uv_handle_t* handle, void* arg) {
-    if (!uv_is_closing(handle))
-     uv_close(handle,
-      [](uv_handle_t* handle) {
 
+ /*
+* 在libuv中，uv_run函数是用于启动事件循环的函数。它会一直运行，直到事件循环中没有待处理的事件或者显式地停止事件循环。
+* uv_run函数的返回值表示事件循环的退出状态。具体来说，返回值为1表示事件循环正常退出并且没有待处理的事件，返回值为0表示事件循环被显式停止，返回值为负数表示事件循环出现错误。
+* 如果uv_run返回1，这意味着事件循环已经处理完当前的事件队列，并且没有其他待处理的事件。这通常发生在没有更多的事件被添加到事件队列或者所有的事件都被处理完之后。
+* 这种情况下，你可以根据需要决定是否继续运行事件循环或者退出程序。
+*/
+ void UvLoop::Close() {
+ /* std::lock_guard<std::mutex> lock{*m_Mutex};*/
+  do {
+   if (!loop_)
+    break;
+   std::vector<UvHandle*> handles;
+   uv_walk(loop_,
+    [](uv_handle_t* handle, void* arg) {
+     auto handles = reinterpret_cast<std::vector<UvHandle*>*>(arg);
+     if (handle->type != UV_ASYNC) {
+      auto h = reinterpret_cast<UvHandle*>(handle->data);
+      handles->emplace_back(h);
+     }
+    }, &handles);
+
+   do {
+    if (handles.empty())
+     break;
+    for (auto it = handles.begin(); it != handles.end();) {
+     auto status = (*it)->Status();
+     if (status > HandleStatus::STATUS_CLOSED) {
+      ++it;
+      continue;
+     }
+     it = handles.erase(it);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+   } while (1);
+
+   async_cb_ = [](const uv_async_t* async) {
+    if (!uv_is_closing((uv_handle_t*)async)) {
+     uv_close((uv_handle_t*)async,
+      [](uv_handle_t* handle) {
+       handle->data = nullptr;
       });
-   }, NULL);
-  uv_run(m_uv_loop, UV_RUN_DEFAULT);
-  uv_loop_close(m_uv_loop);
+    }
+   };
+   uv_async_send(async_);
+   do {
+    if (async_->data == nullptr)
+     break;
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+   } while (1);
+   uv_run(loop_, UV_RUN_DEFAULT);
+   uv_loop_close(loop_);
+  } while (0);
  }
  //////////////////////////////////////////////////////////////////////////////////////////////
- UvHandle::UvHandle(const HandleType& type, UvLoop* loop, void* caller, void* route)
-  : m_pLoop(loop)
+ UvHandle::UvHandle(const HandleType& type, uv_loop_t* loop, void* caller, void* route)
+  : loop_(loop)
   , m_Type(type),
   IHandle(caller, route) {
   Init();
@@ -79,74 +132,76 @@ namespace local {
   bool success = false;
   switch (m_Type) {
   case HandleType::UV_TCP: {
-   if (!m_pLoop)
+   if (!loop_)
     break;
-   m_uv_handle = malloc(sizeof uv_tcp_t);
-   if (!m_uv_handle)
+   handle_ = reinterpret_cast<decltype(handle_)>(new uv_tcp_t);
+   if (!handle_)
     break;
-   ((uv_tcp_t*)m_uv_handle)->data = this;
-   if (0 != uv_tcp_init((uv_loop_t*)m_pLoop->Handle(), (uv_tcp_t*)m_uv_handle))
+   handle_->data = this;
+   if (0 != uv_tcp_init(loop_, (uv_tcp_t*)handle_))
     break;
    success = true;
   }break;
   case HandleType::UV_UDP: {
-   if (!m_pLoop)
+   if (!loop_)
     break;
-   m_uv_handle = malloc(sizeof uv_udp_t);
-   if (!m_uv_handle)
+   handle_ = reinterpret_cast<decltype(handle_)>(new uv_udp_t);
+   if (!handle_)
     break;
-   ((uv_udp_t*)m_uv_handle)->data = this;
-   if (0 != uv_udp_init((uv_loop_t*)m_pLoop->Handle(), (uv_udp_t*)m_uv_handle))
+   handle_->data = this;
+   if (0 != uv_udp_init(loop_, (uv_udp_t*)handle_))
     break;
    success = true;
   }break;
   case HandleType::UV_PIPE_0: {
-   if (!m_pLoop)
+   if (!loop_)
     break;
-   m_uv_handle = malloc(sizeof uv_pipe_t);
-   if (!m_uv_handle)
+   handle_ = reinterpret_cast<decltype(handle_)>(new uv_pipe_t);
+   if (!handle_)
     break;
-   ((uv_pipe_t*)m_uv_handle)->data = this;
-   if (0 != uv_pipe_init((uv_loop_t*)m_pLoop->Handle(), (uv_pipe_t*)m_uv_handle, 0))
+   handle_->data = this;
+   if (0 != uv_pipe_init(loop_, (uv_pipe_t*)handle_, 0))
     break;
    success = true;
   }break;
   case HandleType::UV_PIPE_1: {
-   if (!m_pLoop)
+   if (!loop_)
     break;
-   m_uv_handle = malloc(sizeof uv_pipe_t);
-   if (!m_uv_handle)
+   handle_ = reinterpret_cast<decltype(handle_)>(new uv_pipe_t);
+   if (!handle_)
     break;
-   ((uv_pipe_t*)m_uv_handle)->data = this;
-   if (0 != uv_pipe_init((uv_loop_t*)m_pLoop->Handle(), (uv_pipe_t*)m_uv_handle, 1))
+   handle_->data = this;
+   if (0 != uv_pipe_init(loop_, (uv_pipe_t*)handle_, 1))
     break;
    success = true;
   }break;
   case HandleType::UV_ASYNC: {
-   if (!m_pLoop)
+   if (!loop_)
     break;
-   m_uv_handle = malloc(sizeof uv_async_t);
-   if (!m_uv_handle)
+   handle_ = reinterpret_cast<decltype(handle_)>(new uv_async_t);
+   if (!handle_)
     break;
-   ((uv_async_t*)m_uv_handle)->data = this;
-   if (0 != uv_async_init((uv_loop_t*)m_pLoop->Handle(), (uv_async_t*)m_uv_handle, Protocol::uv_async_cb))
+   handle_->data = this;
+   if (0 != uv_async_init(loop_, (uv_async_t*)handle_, Protocol::uv_async_cb))
     break;
    success = true;
   }break;
   default:
    break;
   }
+  if (success)
+   m_Status.store(HandleStatus::STATUS_READY);
  }
  void UvHandle::UnInit() {
-  SK_DELETE_PTR_C(m_uv_handle);
+  SK_DELETE_PTR(handle_);
  }
- UvLoop* UvHandle::Loop() const {
+ uv_loop_t* UvHandle::Loop() const {
   std::lock_guard<std::mutex> lock{ *m_Mutex };
-  return m_pLoop;
+  return loop_;
  }
- void* UvHandle::Handle() const {
+ uv_handle_t* UvHandle::Handle() const {
   std::lock_guard<std::mutex> lock{ *m_Mutex };
-  return m_uv_handle;
+  return handle_;
  }
  void UvHandle::Release() const {
   delete this;
@@ -157,14 +212,14 @@ namespace local {
  }
  void UvHandle::UserData(void* udata) {
   std::lock_guard<std::mutex> lock{ *m_Mutex };
-  if (m_uv_handle)
-   reinterpret_cast<uv_handle_t*>(m_uv_handle)->data = udata;
+  if (handle_)
+   reinterpret_cast<uv_handle_t*>(handle_)->data = udata;
  }
  void* UvHandle::UserData() const {
   void* result = nullptr;
   std::lock_guard<std::mutex> lock{ *m_Mutex };
-  if (m_uv_handle)
-   result = reinterpret_cast<uv_handle_t*>(m_uv_handle)->data;
+  if (handle_)
+   result = reinterpret_cast<uv_handle_t*>(handle_)->data;
   return result;
  }
  void UvHandle::AsyncReqType(const AsyncType& async_type) {
@@ -187,314 +242,34 @@ namespace local {
   std::lock_guard<std::mutex> lock{ *m_Mutex };
   return m_Status.load();
  }
- //////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- Handle::Handle(const Type& handle_type, void* caller /*= nullptr*/, Handle* async /*= nullptr*/)
-  : m_type(handle_type)
-  , m_caller(caller)
-  , m_async(async) {
-  Init();
- }
- Handle::~Handle() {
-  UnInit();
- }
- void Handle::Init(void* caller /*= nullptr*/) {
-  switch (m_type) {
-  case Type::UV_UDP_SEND:
-   m_uv_handle = malloc(sizeof(uv_udp_send_t));
-   if (!m_uv_handle)
-    break;
-   reinterpret_cast<uv_udp_send_t*>(m_uv_handle)->data = caller ? caller : this;
-   break;
-  case Type::UV_WRITE:
-   m_uv_handle = malloc(sizeof(uv_write_t));
-   if (!m_uv_handle)
-    break;
-   reinterpret_cast<uv_write_t*>(m_uv_handle)->data = caller ? caller : this;
-   break;
-  case Type::UV_LOOP:
-   m_uv_handle = malloc(sizeof(uv_loop_t));
-   if (!m_uv_handle)
-    break;
-   reinterpret_cast<uv_loop_t*>(m_uv_handle)->data = caller ? caller : this;
-   break;
-  case Type::UV_TCP:
-   m_uv_handle = malloc(sizeof(uv_tcp_t));
-   if (!m_uv_handle)
-    break;
-   reinterpret_cast<uv_tcp_t*>(m_uv_handle)->data = caller ? caller : this;
-   break;
-  case Type::UV_UDP:
-   m_uv_handle = malloc(sizeof(uv_udp_t));
-   if (!m_uv_handle)
-    break;
-   reinterpret_cast<uv_udp_t*>(m_uv_handle)->data = caller ? caller : this;
-   break;
-  case Type::UV_PIPE:
-   m_uv_handle = malloc(sizeof(uv_pipe_t));
-   if (!m_uv_handle)
-    break;
-   reinterpret_cast<uv_pipe_t*>(m_uv_handle)->data = caller ? caller : this;
-   break;
-  case Type::UV_ASYNC:
-   m_uv_handle = malloc(sizeof(uv_async_t));
-   if (!m_uv_handle)
-    break;
-   reinterpret_cast<uv_async_t*>(m_uv_handle)->data = caller ? caller : this;
-   break;
-  case Type::UV_CONNECT:
-   m_uv_handle = malloc(sizeof(uv_connect_t));
-   if (!m_uv_handle)
-    break;
-   reinterpret_cast<uv_connect_t*>(m_uv_handle)->data = caller ? caller : this;
-   break;
-  default:
-   break;
-  }
- }
- void Handle::UnInit() {
-  SK_DELETE_PTR_C(m_uv_handle);
-  SK_DELETE_PTR_BUFFER(m_uv_buf.base);
- }
- void Handle::HandleUserData(void* uv_user_data) {
+ void UvHandle::Close() {
+  std::cout << "On close handle 0" << std::endl;
   std::lock_guard<std::mutex> lock{ *m_Mutex };
-  if (uv_user_data)
-   Init(uv_user_data);
- }
- void* Handle::HandleUserData() const {
-  void* result = nullptr;
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  if (m_uv_handle) {
-   switch (m_type) {
-   case Type::UV_UDP_SEND:
-    result = reinterpret_cast<uv_udp_send_t*>(m_uv_handle)->data;
+  std::cout << "On close handle 1" << std::endl;
+  do {
+   if (!handle_)
     break;
-   case Type::UV_WRITE:
-    result = reinterpret_cast<uv_write_t*>(m_uv_handle)->data;
+   if (!handle_->loop || !handle_->loop->data)
     break;
-   case Type::UV_LOOP:
-    result = reinterpret_cast<uv_loop_t*>(m_uv_handle)->data;
-    break;
-   case Type::UV_TCP:
-    result = reinterpret_cast<uv_tcp_t*>(m_uv_handle)->data;
-    break;
-   case Type::UV_UDP:
-    result = reinterpret_cast<uv_udp_t*>(m_uv_handle)->data;
-    break;
-   case Type::UV_PIPE:
-    result = reinterpret_cast<uv_pipe_t*>(m_uv_handle)->data;
-    break;
-   case Type::UV_ASYNC:
-    result = reinterpret_cast<uv_async_t*>(m_uv_handle)->data;
-    break;
-   default:
+   std::cout << "On close handle 2" << std::endl;
+   if (m_Status.load() <= HandleStatus::STATUS_CLOSED) {
+    m_Status.store(HandleStatus::STATUS_CLOSED);
     break;
    }
-  }
-  return result;
- }
- bool Handle::AsyncWriteRequest() {
-  bool result = false;
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  do {
-   if (m_type != Type::UV_WRITE)
-    break;
-   if (!m_async)
-    break;
-   if (!m_uv_buf.base || m_uv_buf.len <= 0)
-    break;
-   m_async->AsyncTypeSet(AsyncType::TYPE_WRITE);
-   m_async->Route(this);
-   if (0 != uv_async_send(m_async->handle<uv_async_t>()))
-    break;
-   result = true;
-  } while (0);
-  return result;
- }
- void Handle::WriteCb(const Handle::tfUvWriteCb& write_cb) {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  m_UvWirteCb = write_cb;
- }
- void Handle::WriteCb(uv_write_t* req, int status) const {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  if (m_UvWirteCb)
-   m_UvWirteCb(req, status);
- }
- const uv_buf_t& Handle::Buf() const {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  return m_uv_buf;
- }
- void Handle::Buf(const char* data, const size_t& len) {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  do {
-   if (!data || len <= 0)
-    break;
-   SK_DELETE_PTR_BUFFER(m_uv_buf.base);
-   m_uv_buf.len = len;
-   m_uv_buf.base = new char[m_uv_buf.len];
-   if (!m_uv_buf.base)
-    break;
-   ::memset(m_uv_buf.base, 0x00, m_uv_buf.len);
-   ::memcpy(m_uv_buf.base, data, m_uv_buf.len);
-  } while (0);
- }
- const Handle::Type& Handle::TypeGet() const {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  return m_type;
- }
- void Handle::AsyncTypeSet(const AsyncType& type) {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  m_async_req_type = type;
- }
- const AsyncType& Handle::AsyncTypeGet() const {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  return m_async_req_type;
- }
- void Handle::StatusSet(const HandleStatus& status) {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  m_status = status;
- }
- const HandleStatus& Handle::StatusGet() const {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  return m_status;
- }
- void Handle::Caller(void* caller) {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  m_caller = caller;
- }
- void* Handle::Caller() const {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  return m_caller;
- }
- const Handle* Handle::Async() const {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  return m_async;
- }
- void Handle::Route(Handle* route) {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  m_route = route;
- }
- Handle* Handle::Route() const {
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  return m_route;
- }
- bool Handle::Close() {
-  bool result = false;
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  if (m_type != Type::UV_LOOP) {
-   if (!m_async) {
-    if (!uv_is_closing((uv_handle_t*)m_uv_handle)) {
-     m_status = HandleStatus::STATUS_CLOSING;
-     uv_close((uv_handle_t*)m_uv_handle, NULL);
-     m_status = HandleStatus::STATUS_CLOSED;
-    }
-    result = true;
-   }
-   else {
-    do {
-     if (m_status == HandleStatus::STATUS_CLOSING || m_status == HandleStatus::STATUS_CLOSED) {
-      result = true;
-      break;
-     }
-     m_status = HandleStatus::STATUS_CLOSING;
-     m_async->m_route = this;
-     m_async->m_async_req_type = AsyncType::TYPE_CLOSE_HANDLE;
-     if (0 != uv_async_send((uv_async_t*)m_async->m_uv_handle))
-      break;
-     result = true;
-    } while (0);
-   }
-  }
-
-  do {
-   if (m_type != Type::UV_LOOP || !m_uv_handle)
-    break;
-   uv_walk((uv_loop_t*)m_uv_handle,
-    [](uv_handle_t* handle, void* arg) {
-     if (!uv_is_closing(handle))
-      uv_close(handle, NULL);
-    }, NULL);
-   uv_run((uv_loop_t*)m_uv_handle, UV_RUN_DEFAULT);
-   uv_loop_close((uv_loop_t*)m_uv_handle);
-  } while (0);
-
-  return result;
- }
- bool Handle::AsyncClose(Handle* pAsync) {
-  bool result = false;
-  std::lock_guard<std::mutex> lock{ *m_Mutex };
-  do {
-   if (!pAsync)
-    break;
-   if (m_status == HandleStatus::STATUS_CLOSING || m_status == HandleStatus::STATUS_CLOSED) {
-    result = true;
-    break;
-   }
-   m_status = HandleStatus::STATUS_CLOSING;
-   pAsync->m_route = this;
-   pAsync->m_async_req_type = AsyncType::TYPE_CLOSE_HANDLE;
-   if (0 != uv_async_send((uv_async_t*)pAsync->m_uv_handle))
-    break;
-#if 0
-   std::atomic_bool closed = false;
-   m_close_cb =
-    [&]() {
-    closed.store(true);
-   };
-   std::future<bool> fresult = std::async(
-    [&]()->bool {
-     do {
-      if (closed.load())
-       return true;
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
-     } while (1);
-     return false;
+   m_Status.store(HandleStatus::STATUS_CLOSING);
+   std::cout << "On close handle 3" << std::endl;
+   auto loop = reinterpret_cast<UvLoop*>(handle_->loop->data);
+   loop->Async(
+    [this](const uv_async_t* async) {
+     std::cout << "On close handle 4" << std::endl;
+     uv_close(handle_,
+     [](uv_handle_t* handle) {
+       UvHandle* pHandle = reinterpret_cast<UvHandle*>(handle->data);
+       pHandle->Status(HandleStatus::STATUS_CLOSED);
+      });
     });
-   result = fresult.get();
-#endif
-   result = true;
   } while (0);
-  return result;
-
-
-
-  return result;
  }
-
 
 
 

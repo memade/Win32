@@ -1,10 +1,14 @@
-﻿#if !defined(__6CCB7E2E_3DEB_4F64_A667_EBA870083DC4__)
-#define __6CCB7E2E_3DEB_4F64_A667_EBA870083DC4__
+﻿#if !defined(__291A2E20_BCB0_4E74_985A_ED27CF6A5528__)
+#define __291A2E20_BCB0_4E74_985A_ED27CF6A5528__
 
 namespace local {
+#define SESSION_PTR(uv_handle) reinterpret_cast<Session*>(uv_handle->data) 
+#define USERDATA_PTR(p) SESSION_PTR(p)
+
 #pragma pack(push,1)
+
  // Define a C++ struct called "PacketHeader", which inherits from the "IPacketHeader" interface
- typedef struct tagPacketHeader : public IPacketHeader {
+ typedef struct tagPacketHeader {
   // Packet header logo
   unsigned long header_logo;
   // Server identify
@@ -32,41 +36,45 @@ namespace local {
 
   // Member functions
   // Verify the packet header
-  bool Verify() const override final;
+  bool Verify() const;
   // Return the ZIP compression type
-  ZipType Zip() const override final;
+  ZipType Zip() const;
   // Return the packet encryption type
-  EncryptType Encrypt() const override final;
+  EncryptType Encrypt() const;
   // Return the command code
-  CommandType Command() const override final;
+  CommandType Command() const;
   // Return the real-time data size
-  unsigned long DataSize() const override final;
+  unsigned long DataSize() const;
   // Return the original data size
-  unsigned long OriginalSize() const override final;
+  unsigned long OriginalSize() const;
   // Return the packet totoal size
-  unsigned long PacketSize() const override final;
- }PacketHeader, HEAD,* PHEAD;
+  unsigned long PacketSize() const;
+ }PacketHeader, HEAD, * PHEAD;
 #pragma pack(pop)
 
 
 
- class Protocol final : public IProtocol {
+ class Protocol final {
  public:
   Protocol();
   virtual ~Protocol();
  public:
   static std::string MakeStream(const HEAD&, const std::string&);
   static bool UnMakeStream(const std::string& input, HEAD&, std::string& output);
-  static void uv_async_cb(uv_async_t* async_handle);
-  static void uv_close_default_loop();
-  static TypeIdentify make_sock_session_identify(const SessionType&, const struct sockaddr&);
-  static bool unmake_sock_session_identify(const TypeIdentify&, SessionType&, struct sockaddr&);
-  static bool unmake_sock_session_identify(const TypeIdentify&, SessionType&, std::string& ip,u_short& port);
-  static std::string unmake_sock_session_identify(const TypeIdentify&);
-  static TypeIdentify make_pipe_session_identify(const SessionType&/*unsigned long*/ type);
-  static bool unmake_pipe_session_identify(const TypeIdentify&,SessionType&,time_t&);
   static bool parser_ipaddr(const std::string& address, std::string& ip, u_short& port);
-  static bool parser_ipaddr(const sockaddr_storage* in_addr, std::string& out_ip, u_short& out_port, const IPType& ipv = IPType::IPV4);
+  static bool parser_ipaddr(const sockaddr* in_addr, char*);
+  static bool parser_ipaddr(const sockaddr* in_addr, std::string&);
+  static bool parser_ipaddr(const sockaddr_storage* in_addr, std::string& out_ip, u_short& out_port, const IPPROTO& ipv = IPPROTO::IPPROTO_IPV4);
+ public:
+  static void uv_alloc_cb(uv_handle_t* handle,
+   size_t suggested_size,
+   uv_buf_t* buf);
+  static void uv_recv_cb(uv_stream_t* stream,
+   ssize_t nread,
+   const uv_buf_t* buf);
+  static void uv_write_cb(uv_write_t* req, int status);
+  static void uv_close_cb(uv_handle_t* handle);
+  static void walk_close_handle_cb(uv_handle_t* handle, void* arg);
  };
 
 
@@ -75,9 +83,12 @@ namespace local {
  extern const size_t PACKET_HEAD_SIZE;
  extern const size_t PACKET_COMPRESSION_STANDARD_SIZE;
  extern const std::uint64_t TIMEOUT_HEARBEAT_MS;
+
+
+
 }///namespace local
 
 /// /*_ Memade®（新生™） _**/
-/// /*_ Tue, 25 Apr 2023 01:18:27 GMT _**/
+/// /*_ Fri, 19 May 2023 14:28:32 GMT _**/
 /// /*_____ https://www.skstu.com/ _____ **/
-#endif///__6CCB7E2E_3DEB_4F64_A667_EBA870083DC4__
+#endif///__291A2E20_BCB0_4E74_985A_ED27CF6A5528__

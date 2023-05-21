@@ -46,6 +46,8 @@ namespace local {
   return 1;
  }
  void Client::Process() {
+  LOG_OUTPUT(std::format("Start client work thread."));
+
   std::uint64_t time_current = ::GetTickCount64();
   std::uint64_t time_reconnection_prev = 0;
   const std::uint64_t time_reconnection = 10000;
@@ -151,6 +153,7 @@ namespace local {
    time_current = ::GetTickCount64();
    std::this_thread::sleep_for(std::chrono::milliseconds(10));
   } while (1);
+  LOG_OUTPUT(std::format("Exited client work thread."));
  }
 
 

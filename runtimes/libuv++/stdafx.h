@@ -18,12 +18,13 @@ using namespace libuv;
 #include "protocol.h"
 #include "body.h"
 #include "handle.h"
-#include "base.h"
 #include "config.h"
 #include "stream.h"
 #include "session.h"
 #include "server.h"
 #include "client.h"
+
+#include "export.h"
 
 #pragma comment(lib,"libuv-1.44.2.lib")
 /// /*新生®（上海）**/

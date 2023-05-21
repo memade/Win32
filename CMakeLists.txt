@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25.1)
 project (Win32)
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 # 添加预定义宏
 add_definitions(-DUNICODE -D_UNICODE)
 

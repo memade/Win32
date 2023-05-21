@@ -58,6 +58,8 @@ foreach(entry ${entries})
 			
 		if(${origin_entry_name} STREQUAL "openssl")
 		elseif(${origin_entry_name} STREQUAL "cef")
+  elseif(${origin_entry_name} STREQUAL "libuv++")
+   continue()
 		elseif(${origin_entry_name} STREQUAL "win")
    install_sub_project(${entry} ${origin_entry_name} OFF)
 			target_include_directories(${origin_entry_name} 
@@ -104,7 +106,7 @@ foreach(entry ${entries})
    ${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
    ${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
    )
-  elseif(${origin_entry_name} STREQUAL "libuv++")
+  elseif(${origin_entry_name} STREQUAL "uv++")
    install_sub_project(${entry} ${origin_entry_name} ON)
 			target_include_directories(${origin_entry_name} 
 			PRIVATE 
