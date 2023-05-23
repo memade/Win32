@@ -1,5 +1,6 @@
 #include <win.hpp>
 #include <libuv.hpp>
+using namespace libuv;
 
 int main(int argc, char** argv) {
 #if defined(_DEBUG)
@@ -20,6 +21,44 @@ int main(int argc, char** argv) {
  //config->IP(libuv::IPType::IPPROTO_IPV4);
  //config->Address(R"(127.0.0.1:8888)");
 #endif
+ client->RegisterOnHookConnectionCb(
+  [](std::string& address) {
+  
+   auto sk = 0;
+  });
+ client->RegisterOnConnectionCb(
+  [](auto session) {  
+   auto sss = 0;
+  });
+ client->RegisterOnDisconnectionCb(
+  [](auto session) {
+  
+   auto sss = 0;
+  });
+ client->RegisterOnHookSystemExitCb([](bool& close) {
+  auto sksks = 0;
+  });
+ client->RegisterOnSystemExitCb(
+  []() { 
+   auto sksksk = 0;
+  });
+
+ client->RegisterOnMessageCb([](const ISession* session, const CommandType& cmd, const std::string& message) {
+  
+   auto sksks = 0;
+  });
+ client->RegisterOnWelcomeCb(
+  [](const ISession* pSession, const std::string& message_receive, std::string& message_reply) {
+  
+   auto sksksk = 0;
+  });
+ client->RegisterOnReceiveReplyCb([](const ISession* session, \
+  const CommandType& cmd_receive, const std::string& message_receive,
+  CommandType& cmd_reply,
+  std::string& message_reply) {
+  
+   auto sksks = 0;
+  });
  client->Start();
 
  shared::Win::MainProcess(

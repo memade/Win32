@@ -5,11 +5,20 @@ namespace local {
  Session::Session() {
   m_pReadStream = new Stream(0xFFFF, StreamType::READ);
   m_pWriteStream = new Stream(0xFFFF, StreamType::WRITE);
+  m_CreateTimeMS.store(shared::TimeStampUTC<std::chrono::milliseconds>());
  }
 
  Session::~Session() {
   SK_DELETE_PTR(m_pReadStream);
   SK_DELETE_PTR(m_pWriteStream);
+ }
+ void Session::ForceClose() {
+  std::lock_guard<std::mutex> lock{*m_Mutex};
+  m_Status = SessionStatus::FORCECLOSE;
+ }
+ unsigned long long Session::CreateTimeMS() const {
+  std::lock_guard<std::mutex> lock{*m_Mutex};
+  return m_CreateTimeMS.load();
  }
  void Session::Handle(uv_handle_t* handle) {
   std::lock_guard<std::mutex> lock{*m_Mutex};
@@ -80,11 +89,19 @@ namespace local {
   std::lock_guard<std::mutex> lock{*m_Mutex};
   return m_SessionType;
  }
+ void Session::ActivationTimeUpdate(const unsigned long long& time /*= 0*/) {
+  std::lock_guard<std::mutex> lock{*m_Mutex};
+  m_ActivationTime.store(time == 0 ? shared::TimeStampUTC<std::chrono::milliseconds>() : time);
+ }
  unsigned long long Session::ActivationTime(const unsigned long long& time_ms) {
   unsigned long long result = 0;
   std::lock_guard<std::mutex> lock{*m_Mutex};
-  result = m_ActivationTime.load() ? time_ms - m_ActivationTime.load() : 0;
-  m_ActivationTime.store(time_ms);
+  if (m_ActivationTime.load() <= 0) {
+   m_ActivationTime.store(time_ms);
+  }
+  else {
+   result = time_ms - m_ActivationTime.load();
+  }
   return result;
  }
  const sockaddr& Session::SockAddr() const {
@@ -120,7 +137,7 @@ namespace local {
   std::lock_guard<std::mutex> lock{*m_Mutex};
   return *m_pWriteStream << Protocol::MakeStream(HEAD(CommandType(cmd)), original_data);
  }
- write_req_t* Session::Write() {
+ write_req_t* Session::Write(const std::function<void(std::string&)>& on_hook_cb) {
   write_req_t* result = nullptr;
   std::lock_guard<std::mutex> lock{ *m_Mutex };
   do {
@@ -129,6 +146,8 @@ namespace local {
    std::string write_buffer;
    if (!(*m_pWriteStream >> write_buffer) || write_buffer.empty())
     break;
+   if (on_hook_cb)
+    on_hook_cb(write_buffer);
    result = new write_req_t;
    result->buf.len = static_cast<decltype(result->buf.len)>(write_buffer.size());
    result->buf.base = new char[result->buf.len];

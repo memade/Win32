@@ -15,10 +15,6 @@ namespace local {
   unsigned long SessionCount() const override final;
   Config* ConfigGet() const override final;
   void Release() const override final;
-  void RegisterOnAcceptCb(const tfOnAcceptCb&) override final;
-  void RegisterOnReceiveReply(const tfOnReceiveReply&) override final;
-  void RegisterOnSessionAppendBeforeCb(const tfOnSessionAppendBeforeCb&) override final;
-  void RegisterOnSessionRemoveBeforeCb(const tfOnSessionRemoveBeforeCb&) override final;
  public:
   bool IsClose() const;
   void Status(const ServerStatus&);
@@ -26,6 +22,9 @@ namespace local {
  private:
   void Init();
   void UnInit();
+  static void MainProcess(void*);
+  static void WorkProcess(uv_handle_t* handle, void* arg);
+  static void SessionConnectionCb(uv_stream_t* server, int status);
   HANDLE thread_main_ = nullptr;
   std::atomic_bool m_IsOpen = false;
   std::atomic_ulong m_SessionCount = 0;

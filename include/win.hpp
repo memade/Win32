@@ -887,7 +887,9 @@ namespace shared {
   static std::string GetModuleNameA(const bool& RemoveSuffix = false, const HINSTANCE& hModule = nullptr);
   static std::wstring GetModuleNameW(const bool& RemoveSuffix = false, const HINSTANCE& hModule = nullptr);
   static std::string GetModulePathA(const HINSTANCE& hModule = nullptr);
+  static unsigned long GetModulePathA(char* out_buffer, const size_t& out_buffer_size,const HINSTANCE& hModule = nullptr);
   static std::wstring GetModulePathW(const HINSTANCE& hModule = nullptr);
+  static unsigned long GetModulePathW(wchar_t* out_buffer, const size_t& out_buffer_size, const HINSTANCE& hModule = nullptr);
   static std::string GetModulePathnameA(const HINSTANCE& hModule = nullptr);
   static std::wstring GetModulePathnameW(const HINSTANCE& hModule = nullptr);
   static std::string PathnamePathAppendA(const std::string&, const std::string&);
@@ -1291,6 +1293,12 @@ namespace shared {
   std::string m_RuntimelogCacheA;
   std::wstring m_RuntimelogCacheW;
  }IObjectRuntimeRecorder, IClassRuntimeRecorder;
+
+
+ using STANDARD_COMPONECT_INTERFACE_INIT = void* (__stdcall*)(const void*, unsigned long);
+ using STANDARD_COMPONECT_INTERFACE_UNINIT = void(__stdcall*)(void);
+ extern const char STANDARD_COMPONECT_INTERFACE_SIGNATURE_INIT[];
+ extern const char STANDARD_COMPONECT_INTERFACE_SIGNATURE_UNINIT[];
 
  extern const char LOGO_IDENTIFY_CN[];
  extern const char LOGO_IDENTIFY_TC[];

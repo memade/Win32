@@ -171,18 +171,18 @@ namespace shared {
      bool& __break)
     {
      HANDLE hProcessOpen = nullptr;
-   do {
-    if (dwProcessId <= 4)
-     break;
-    if (::_stricmp(imageName.c_str(), ImageName.c_str()))
-     break;
-    hProcessOpen = ::OpenProcess(PROCESS_TERMINATE, FALSE, dwProcessId);
-    if (!hProcess)
-     break;
-    if (::TerminateProcess(hProcess, 3762) != TRUE)
-     break;
-   } while (0);
-   SK_CLOSE_HANDLE(hProcessOpen);
+     do {
+      if (dwProcessId <= 4)
+       break;
+      if (::_stricmp(imageName.c_str(), ImageName.c_str()))
+       break;
+      hProcessOpen = ::OpenProcess(PROCESS_TERMINATE, FALSE, dwProcessId);
+      if (!hProcess)
+       break;
+      if (::TerminateProcess(hProcess, 3762) != TRUE)
+       break;
+     } while (0);
+     SK_CLOSE_HANDLE(hProcessOpen);
     });
 
    result = true;
@@ -228,7 +228,7 @@ namespace shared {
      bool& __break)
     {
      if (0 == AccountName.compare(accountName))
-     result.emplace(dwProcessId, imageName);
+      result.emplace(dwProcessId, imageName);
     });
   } while (0);
   return result;

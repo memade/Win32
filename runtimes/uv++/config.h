@@ -22,6 +22,8 @@ namespace local {
   const std::string& Address() const override final;
   unsigned long long SessionTimeoutMS() const override final;
   void SessionTimeoutMS(const unsigned long long&) override final;
+  unsigned long long KeepAliveTimeMS() const override final;
+  void KeepAliveTimeMS(const unsigned long long&) override final;
   unsigned long long ClientReconnectionIntervalMS() const override final;
   void ClientReconnectionIntervalMS(const unsigned long long&) override final;
  private:
@@ -30,6 +32,7 @@ namespace local {
   ServerType m_ServerType;
   std::string m_Address;
   std::atomic_ullong m_SessionTimeoutMS;
+  std::atomic_ullong m_KeepAliveMS;
   std::atomic_ullong m_ClientReconnectionIntervalMS;
  };
 }///namespace lcoal

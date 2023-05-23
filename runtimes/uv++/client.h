@@ -16,8 +16,12 @@ namespace local {
   ServerStatus Status() const override final;
   bool Close() const; 
  private:
+  static void MainProcess(void*);
+  static void ConnectCb(uv_connect_t* req, int status);
+  static void Connect(const std::string&, uv_handle_t*, uv_handle_t*);
   void Init();
   void UnInit();
+  HANDLE thread_main_ = nullptr;
   std::atomic_bool m_IsOpen = false;
   Config* m_pConfig = nullptr;
   Session* m_pSession = nullptr;

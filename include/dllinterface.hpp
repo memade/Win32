@@ -55,6 +55,7 @@ namespace shared {
      break;
     HMODULE freeMod = reinterpret_cast<HMODULE>(instance->hModule);
     instance->api_object_uninit();
+    instance->Release();
     instance = nullptr;
     ::FreeLibrary(freeMod);
     freeMod = nullptr;

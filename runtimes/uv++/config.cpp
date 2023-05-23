@@ -11,7 +11,8 @@ namespace local {
   m_IPType = IPType::IPPROTO_IPV4;
   m_SessionType = SessionType::TCP;
   m_ServerType = ServerType::ACCEPTOR;
-  m_SessionTimeoutMS.store(10000);
+  m_KeepAliveMS.store(5000);
+  m_SessionTimeoutMS.store(30000);
   m_ClientReconnectionIntervalMS.store(10000);
   m_Address = R"(0.0.0.0:8888)";
  }
@@ -49,6 +50,14 @@ namespace local {
  const std::string& Config::Address() const {
   std::lock_guard<std::mutex> lock{*m_Mutex};
   return m_Address;
+ }
+ unsigned long long Config::KeepAliveTimeMS() const {
+  std::lock_guard<std::mutex> lock{*m_Mutex};
+  return m_KeepAliveMS.load();
+ }
+ void Config::KeepAliveTimeMS(const unsigned long long& ms) {
+  std::lock_guard<std::mutex> lock{*m_Mutex};
+  m_KeepAliveMS.store(ms);
  }
  unsigned long long Config::SessionTimeoutMS() const {
   std::lock_guard<std::mutex> lock{*m_Mutex};

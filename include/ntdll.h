@@ -787,7 +787,6 @@ typedef enum _OBJECT_INFORMATION_CLASS
 //
 // NtQueryObject uses ObjectBasicInformation
 //
-
 typedef struct _OBJECT_BASIC_INFORMATION
 {
     ULONG Attributes;
@@ -4654,6 +4653,16 @@ typedef struct _PROCESS_BASIC_INFORMATION
     ULONG_PTR InheritedFromUniqueProcessId;
 
 } PROCESS_BASIC_INFORMATION,*PPROCESS_BASIC_INFORMATION;
+
+typedef struct _THREAD_BASIC_INFORMATION
+{
+ NTSTATUS ExitStatus;
+ PTEB TebBaseAddress;
+ CLIENT_ID ClientId;
+ ULONG_PTR AffinityMask;
+ KPRIORITY Priority;
+ LONG BasePriority;
+} THREAD_BASIC_INFORMATION, * PTHREAD_BASIC_INFORMATION;
 
 typedef BOOLEAN (*PDLL_INIT_ROUTINE)(
     IN PVOID DllHandle,

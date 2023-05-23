@@ -19,31 +19,35 @@ namespace local {
   std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();
  public:
   Session();
-  ~Session();
+  virtual ~Session();
  public:
+  void ForceClose() override final;
+  void Route(void*) override final;
+  void* Route() const override final;
+  bool Read(const char*, const size_t&) override final;
+  bool Write(const CommandType&, const std::string&) override final;
+  const SessionStatus& Status() const override final;
+  void Address(const std::string&) override final;
+  const std::string& Address() const override final;
+  void ServerTypeSet(const ServerType&) override final;
+  const ServerType& ServerTypeGet() const override final;
+  void SessionTypeSet(const SessionType&) override final;
+  const SessionType& SessionTypeGet() const override final;
+  unsigned long long CreateTimeMS() const override final;
+ public:
+  void Status(const SessionStatus&);
   std::string Read();
-  write_req_t* Write();
-  bool Read(const char*, const size_t&);
-  bool Write(const CommandType&, const std::string&);
+  write_req_t* Write(const std::function<void(std::string&)>& on_hook_cb = nullptr);
   void Handle(uv_handle_t*);
   uv_handle_t* Handle() const;
   void Caller(void*);
   void* Caller() const;
-  void Route(void*);
-  void* Route() const;
-  void Status(const SessionStatus&);
-  const SessionStatus& Status() const;
-  void Address(const std::string&);
-  const std::string& Address() const;
   void SockAddr(const sockaddr&);
   void SockAddr(const sockaddr_in&);
   const sockaddr& SockAddr() const;
   void SetReadBuf(uv_buf_t*&) const;
+  void ActivationTimeUpdate(const unsigned long long& time = 0);
   unsigned long long ActivationTime(const unsigned long long&);
-  void ServerTypeSet(const ServerType&);
-  const ServerType& ServerTypeGet() const;
-  void SessionTypeSet(const SessionType&);
-  const SessionType& SessionTypeGet() const;
  private:
   std::string m_Address;
   uv_handle_t* handle_ = nullptr;
@@ -56,6 +60,7 @@ namespace local {
   Stream* m_pReadStream = nullptr;
   Stream* m_pWriteStream = nullptr;
   std::atomic_ullong m_ActivationTime = 0;
+  std::atomic_ullong m_CreateTimeMS = 0;
  }UserData;
 
 }///namespace local
