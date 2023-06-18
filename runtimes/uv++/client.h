@@ -3,32 +3,40 @@
 
 namespace local {
 
- class Client final : public IClient {
+ class Client final : public IService {
   std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();
  public:
-  Client();
+  Client(const unsigned long&);
   ~Client();
  public:
   Config* ConfigGet() const override final;
   bool Start() override final;
   void Stop() override final;
+  ServerType ServerTypeGet() const override final;
+  SessionType SessionTypeGet() const override final;
+  AddressType AddressTypeGet() const override final;
   void Release() const override final;
+  size_t SessionCount() const override final;
   ServerStatus Status() const override final;
-  bool Close() const; 
+  bool Write(const CommandType& ,const char*, const size_t&) override final;
  private:
   static void MainProcess(void*);
   static void ConnectCb(uv_connect_t* req, int status);
-  static void Connect(const std::string&, uv_handle_t*, uv_handle_t*);
+  static bool Connect(const std::string&, uv_handle_t*, uv_handle_t*);
+  void NotifyFirstLogicalEvent();
   void Init();
   void UnInit();
+  bool IsClose() const;
   HANDLE thread_main_ = nullptr;
   std::atomic_bool m_IsOpen = false;
   Config* m_pConfig = nullptr;
-  Session* m_pSession = nullptr;
   ServerStatus m_ServerStatus = ServerStatus::UNKNOWN;
+  const unsigned long m_Identify;
+  HANDLE m_hFirstLogicalEvent = nullptr;
+  std::atomic_bool m_FirstLogicalEventTriggerFlag = false;
+  shared::container::multimap<CommandType, std::string> m_WriteBufferQ;
  };
 
- extern Client* __gpClient;
 }///namespace local
 
 /// /*_ Memade®（新生™） _**/

@@ -5,7 +5,7 @@
 #include "include/views/cef_window.h"
 
 
-namespace cef {
+namespace local {
 
  namespace {
   class SimpleWindowDelegate : public CefWindowDelegate {
@@ -91,4 +91,4 @@ namespace cef {
  }
 
 
-}///namespace cef
+}///namespace local

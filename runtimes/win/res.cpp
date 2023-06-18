@@ -15,7 +15,22 @@ namespace shared {
   } while (0);
   return result;
  }
-#ifdef WINLIB_DISABLE_ZIPPP_H
+#if ENABLE_WIN_DEFINE_ZIP
+ bool Win::Resource::UnRespak(_In_ const std::string& respak_buffer, _Out_ std::string& out_buffer) {
+  bool result = false;
+  out_buffer.clear();
+  do {
+   unsigned long origin_size = 0;
+   ::memcpy(&origin_size, respak_buffer.data() + (respak_buffer.size() - sizeof(unsigned long)), sizeof(origin_size));
+   if (origin_size <= 0)
+    break;
+   if (shared::Zip::zipUnCompress(std::string(respak_buffer.data(), respak_buffer.size() - sizeof(unsigned long)), origin_size, out_buffer) != Z_OK)
+    break;
+   result = true;
+  } while (0);
+  return result;
+ }
+#else
  bool Win::Resource::UnRespak(_In_ const std::string& respak_buffer, _Out_ std::string& out_buffer, \
   const std::function<bool(const std::string&, const unsigned long& origin_size, std::string&)>& unzip_cb) {
   bool result = false;
@@ -34,21 +49,6 @@ namespace shared {
    else
     out_buffer = respak_buffer;
    result = !out_buffer.empty();
-  } while (0);
-  return result;
- }
-#else
- bool Win::Resource::UnRespak(_In_ const std::string& respak_buffer, _Out_ std::string& out_buffer) {
-  bool result = false;
-  out_buffer.clear();
-  do {
-   unsigned long origin_size = 0;
-   ::memcpy(&origin_size, respak_buffer.data() + (respak_buffer.size() - sizeof(unsigned long)), sizeof(origin_size));
-   if (origin_size <= 0)
-    break;
-   if (shared::Zip::zipUnCompress(std::string(respak_buffer.data(), respak_buffer.size() - sizeof(unsigned long)), origin_size, out_buffer) != Z_OK)
-    break;
-   result = true;
   } while (0);
   return result;
  }
@@ -138,13 +138,13 @@ namespace shared {
    std::for_each(ress.begin(), ress.end(),
     [&](const auto& node) {
      shared::nt::ROUTEDATAINFO dataInfo;
-   dataInfo.data_identify = node.first;
-   dataInfo.data_size = static_cast<decltype(dataInfo.data_size)>(node.second.size());
-   dataInfo.data_postion = static_cast<decltype(dataInfo.data_postion)>(outres.size());
-   outres.append((char*)&dataInfo, sizeof(dataInfo));
-   if (dataInfo.data_size > 0)
-    outres.append(node.second);
-   ((shared::nt::ROUTEDATAHEAD*)outres.data())->data_size += dataInfo.data_size;
+     dataInfo.data_identify = node.first;
+     dataInfo.data_size = static_cast<decltype(dataInfo.data_size)>(node.second.size());
+     dataInfo.data_postion = static_cast<decltype(dataInfo.data_postion)>(outres.size());
+     outres.append((char*)&dataInfo, sizeof(dataInfo));
+     if (dataInfo.data_size > 0)
+      outres.append(node.second);
+     ((shared::nt::ROUTEDATAHEAD*)outres.data())->data_size += dataInfo.data_size;
     });
    result = !outres.empty();
   } while (0);

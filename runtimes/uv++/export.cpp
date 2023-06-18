@@ -1,17 +1,23 @@
 ﻿#include "stdafx.h"
+using namespace local;
 
 __shared_api_ void* __stdcall api_object_init(const void*, unsigned long type) {
  void* result = nullptr;
- switch (ServerType(type)) {
+
+ ServerType server_type = Protocol::GetServerType(type);
+ SessionType session_type = Protocol::GetSessionType(type);
+ AddressType address_type = Protocol::GetAddressType(type);
+ if (server_type == ServerType::UNKNOWN || \
+  session_type == SessionType::UNKNOWN || \
+  address_type == AddressType::UNKNOWN)
+  return result;
+
+ switch (server_type) {
  case ServerType::ACCEPTOR: {
-  local::__gpServer = new local::Server();
-  local::__gpServer->ConfigGet()->Server(ServerType(type));
-  result = reinterpret_cast<decltype(result)>(dynamic_cast<IServer*>(local::__gpServer));
+  result = reinterpret_cast<decltype(result)>(dynamic_cast<IService*>(new local::Server(type)));
  }break;
  case ServerType::INITIATOR: {
-  local::__gpClient = new local::Client();
-  local::__gpClient->ConfigGet()->Server(ServerType(type));
-  result = reinterpret_cast<decltype(result)>(dynamic_cast<IClient*>(local::__gpClient));
+  result = reinterpret_cast<decltype(result)>(dynamic_cast<IService*>(new local::Client(type)));
  }break;
  default:
   break;

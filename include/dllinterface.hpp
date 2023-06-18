@@ -67,6 +67,78 @@ namespace shared {
   t_interface_uninit api_object_uninit = nullptr;
  };
 
+
+ class IUIConfig {
+ public:
+  virtual void MainWindowInitialShow(const bool&) { return; }
+  virtual bool MainWindowInitialShow() const { return false; }
+  virtual void RequestUrl(const char*) { return; }
+  //!@ 子窗口独占模式
+  virtual void EnableChildWindowExclusiveMode(const bool&) { return; }
+  virtual bool EnableChildWindowExclusiveMode() const { return false; }
+  //!@ Skin path.
+  virtual void SkinPath(const char*) {}
+  virtual const char* SkinPath() const { return nullptr; }
+ };
+
+ class IUserInterface {
+ protected:
+  IUserInterface* m_pUI = nullptr;
+  using tfOnDestroyCb = std::function<void()>;
+ public:
+  virtual IUIConfig* UIConfigGet() const {
+   return m_pUI ? m_pUI->UIConfigGet() : nullptr;
+  }
+  virtual bool Start() {
+   return m_pUI ? m_pUI->Start() : false;
+  }
+  virtual void Stop() {
+   if (m_pUI) return m_pUI->Stop();
+  }
+  virtual void Show(const bool& flag) const {
+   if (m_pUI) m_pUI->Show(flag);
+  }
+  virtual void Release() const { return; }
+  virtual void Parent(const HWND& h) {
+   if (m_pUI) m_pUI->Parent(h);
+  }
+  virtual HWND MainWnd() const {
+   return m_pUI ? m_pUI->MainWnd() : nullptr;
+  }
+  virtual HANDLE MainProcess() const {
+   return m_pUI ? m_pUI->MainProcess() : nullptr;
+  }
+  virtual HWND CreateFrameChild(const bool& show_flag) {
+   return m_pUI ? m_pUI->CreateFrameChild(show_flag) : nullptr;
+  }
+  virtual HWND CreateFrameChildHost(const bool& show_flag) {
+   return m_pUI ? m_pUI->CreateFrameChildHost(show_flag) : nullptr;
+  }
+  virtual void RegisterOnDestroyCb(const tfOnDestroyCb& cb) {
+   if (m_pUI)
+    m_pUI->RegisterOnDestroyCb(cb);
+  }
+  virtual void MDIFrameWindowCascade() {
+   if (m_pUI)
+    m_pUI->MDIFrameWindowCascade();
+  }
+  virtual void MDIFrameWindowTileHorz() {
+   if (m_pUI)
+    m_pUI->MDIFrameWindowTileHorz();
+  }
+  virtual void MDIFrameWindowTileVert() {
+   if (m_pUI)
+    m_pUI->MDIFrameWindowTileVert();
+  }
+  virtual bool MDIAppendChild(const HWND& h) {
+   return m_pUI ? m_pUI->MDIAppendChild(h) : false;
+  }
+  virtual void MainWindowPos(const bool& auto_adjust = true, const RECT& rtPosition = { 0,0,0,0 }) {
+   if (m_pUI)
+    m_pUI->MainWindowPos(auto_adjust, rtPosition);
+  }
+ };
+
 }///namespace shared
 
 

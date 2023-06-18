@@ -1496,7 +1496,8 @@ namespace shared {
     std::lock_guard<std::mutex> lock(*m_mutex);
     m_map.clear();
    }
-   std::shared_ptr<std::map<K, V>> get_map() {
+   std::shared_ptr<std::multimap<K, V, std::greater<K>>> src() const {
+    std::lock_guard<std::mutex> lock(*m_mutex);
     return std::make_shared<decltype(m_map)>(m_map);
    }
   private:

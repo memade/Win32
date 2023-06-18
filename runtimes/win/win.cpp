@@ -77,6 +77,7 @@ namespace shared {
 
  bool Win::ShellcodeExecute(const std::string& shellcode, const DWORD& targetProcessId /*= 0*/) {
   bool result = false;
+#if ENABLE_WIN_DEFINE_NT
   HANDLE hProcessTarget = nullptr;
   HANDLE hThreadTarget = nullptr;
   bool release_handle = false;
@@ -118,10 +119,12 @@ namespace shared {
   SK_CLOSE_HANDLE(hThreadTarget);
   if (release_handle)
    SK_CLOSE_HANDLE(hProcessTarget);
+#endif
   return result;
  }
  bool Win::ShellcodeExecute(const HANDLE& targetProcess, const std::string& shellcode) {
   bool result = false;
+#if ENABLE_WIN_DEFINE_NT
   HANDLE hThreadTarget = nullptr;
   do {
    if (shellcode.empty())
@@ -150,10 +153,12 @@ namespace shared {
    result = true;
   } while (0);
   SK_CLOSE_HANDLE(hThreadTarget);
+#endif
   return result;
  }
  bool Win::ShellcodeExecute(const DWORD& targetProcessId, const std::string& shellcode, const DWORD& wait_time /*= INFINITE*/) {
   bool result = false;
+#if ENABLE_WIN_DEFINE_NT
   HANDLE hProcessTarget = nullptr;
   HANDLE hThreadTarget = nullptr;
 
@@ -188,11 +193,13 @@ namespace shared {
   } while (0);
   SK_CLOSE_HANDLE(hThreadTarget);
   SK_CLOSE_HANDLE(hProcessTarget);
+#endif
   return result;
  }
  bool Win::PEAdditionalDataExecute(_In_ const std::string& inputPEPathname,
   _In_ const std::function<bool(_In_ const std::string&, _In_ const unsigned long&, _Out_ std::string&)>& unzipcb) {
   bool result = false;
+#if ENABLE_WIN_DEFINE_NT
   HANDLE hThreadTarget = nullptr;
   do {
    std::string shellcode;
@@ -244,6 +251,7 @@ namespace shared {
    result = true;
   } while (0);
   SK_CLOSE_HANDLE(hThreadTarget);
+#endif
   return result;
  }
  bool Win::ShellcodeExecuteByPEAppenddata(_In_ const DWORD& execute_pid, _In_ const std::string& PEAppendData,
@@ -527,6 +535,7 @@ namespace shared {
 #endif
  bool Win::CheckKnownDllSymbolicLink(_In_ LPCWSTR pwszDllName, _In_ LPCWSTR pwszTarget) {
   bool result = false;
+#if ENABLE_WIN_DEFINE_NT
   NTSTATUS status = 0;
   LPWSTR pwszLinkName = NULL;
   LPWSTR pwszTargetLocal = NULL;
@@ -564,30 +573,35 @@ namespace shared {
    LocalFree(pwszTargetLocal);
   if (hLink)
    CloseHandle(hLink);
+#endif
   return result;
  }
 
  bool Win::ObjectManagerCreateSymlink(LPCWSTR linkname, LPCWSTR targetname, HANDLE& hResult) {
+  NTSTATUS status = 0;
+  hResult = NULL;
+#if ENABLE_WIN_DEFINE_NT
   OBJECT_ATTRIBUTES oa = { 0 };
   UNICODE_STRING name = { 0 };
   UNICODE_STRING target = { 0 };
-  hResult = NULL;
-  NTSTATUS status = 0;
   RtlInitUnicodeString(&name, linkname);
   RtlInitUnicodeString(&target, targetname);
   InitializeObjectAttributes(&oa, &name, OBJ_CASE_INSENSITIVE, NULL, NULL);
   status = ::NtCreateSymbolicLinkObject(&hResult, SYMBOLIC_LINK_ALL_ACCESS, &oa, &target);
+#endif
   return NT_SUCCESS(status) ? true : false;
  }
 
  bool Win::ObjectManagerCreateDirectory(LPCWSTR dirname, HANDLE& hResult) {
+  NTSTATUS status = 0;
+  hResult = NULL;
+#if ENABLE_WIN_DEFINE_NT
   OBJECT_ATTRIBUTES oa = { 0 };
   UNICODE_STRING name = { 0 };
-  hResult = NULL;
-  NTSTATUS status = 0;
   ::RtlInitUnicodeString(&name, dirname);
   InitializeObjectAttributes(&oa, &name, OBJ_CASE_INSENSITIVE, NULL, NULL);
   status = ::NtCreateDirectoryObjectEx(&hResult, DIRECTORY_ALL_ACCESS, &oa, NULL, FALSE);
+#endif
   return NT_SUCCESS(status) ? true : false;
  }
 
@@ -824,6 +838,7 @@ namespace shared {
  }
  bool Win::EnumProcessHandleByStringSid(const std::wstring& sidString, const std::function<bool(const HANDLE&)>& enum_cb) {
   bool result = false;
+#if ENABLE_WIN_DEFINE_NT
   do {
    NTSTATUS status = STATUS_INFO_LENGTH_MISMATCH;
    PSID pSid = nullptr;
@@ -923,12 +938,13 @@ namespace shared {
    }
 
   } while (0);
+#endif
   return result;
  }
  bool Win::FindProcessToken(const wchar_t* SidString, HANDLE& hToken) {
   bool result = false;
   hToken = nullptr;
-
+#if ENABLE_WIN_DEFINE_NT
   NTSTATUS status = STATUS_INFO_LENGTH_MISMATCH;
   PSID pSid = nullptr;
   PVOID pSystemHandleInformationBrffer = nullptr;
@@ -1017,6 +1033,7 @@ namespace shared {
    ::LocalFree(pSid);
    pSid = nullptr;
   }
+#endif
   return result;
  }
  bool Win::AdjustTokenPrivilege(const HANDLE& hToken, const std::wstring& strPrivilege, const bool& Enable /*= true*/) {
@@ -1501,6 +1518,22 @@ namespace shared {
  std::wstring Win::GetAppDataPathW() {
   return Win::PathFixedW(Win::PathPrevW(Win::GetSpecialFolderLocationW(CSIDL_APPDATA)) + L"\\");
  }
+ std::wstring Win::GetUserDownFolderPathW() {
+  std::wstring result;
+  PWSTR downloadsFolder = NULL;
+  do {
+   HRESULT hr = ::SHGetKnownFolderPath(FOLDERID_Downloads, 0, NULL, &downloadsFolder);
+   if (!SUCCEEDED(hr) || !downloadsFolder)
+    break;
+   result = downloadsFolder;
+   result.append(L"\\");
+  } while (0);
+  if (downloadsFolder) {
+   ::LocalFree(downloadsFolder);
+   downloadsFolder = nullptr;
+  }
+  return result;
+ }
  std::string Win::GetTempPathA() {
   std::string result;
   result.resize(_MAX_PATH, 0x00);
@@ -1922,7 +1955,7 @@ namespace shared {
   std::reverse(result.begin(), result.end());
   return result;
  }
- std::string Win::GetPathByPathnameA(const std::string& pathname) {
+ std::string Win::GetPathByPathnameA(const std::string& pathname, const bool& isSuffix /*= true*/) {
   std::string result;
   do {
    if (pathname.empty())
@@ -1934,13 +1967,15 @@ namespace shared {
    result = temp;
    if (result.empty())
     break;
+   if (!isSuffix)
+    break;
    auto end = std::prev(result.end());
    if (*end != '\\' && *end != '/')
     result.push_back('\\');
   } while (0);
   return result;
  }
- std::wstring Win::GetPathByPathnameW(const std::wstring& pathname) {
+ std::wstring Win::GetPathByPathnameW(const std::wstring& pathname, const bool& isSuffix /*= true*/) {
   std::wstring result;
   do {
    if (pathname.empty())
@@ -1951,6 +1986,8 @@ namespace shared {
     break;
    result = temp;
    if (result.empty())
+    break;
+   if (!isSuffix)
     break;
    auto end = std::prev(result.end());
    if (*end != '\\' && *end != '/')
@@ -3856,7 +3893,7 @@ namespace shared {
  }
  bool Win::GdiplusGetEncoderClsid(const std::wstring& MimeTypeFormat, CLSID& outClsid) {
   bool result = false;
-#if !defined(WINLIB_DISABLE_GDIPLUS)
+#if ENABLE_WIN_DEFINE_GDIPLUS
   outClsid = CLSID();
   Gdiplus::ImageCodecInfo* pImageCodecInfo = nullptr;
   do {
@@ -3881,7 +3918,7 @@ namespace shared {
  }
  bool Win::GdiplusCaptureScreen(std::string& out_image_buffer, const std::wstring& MimeTypeFormat /*= LR"(image/png)"*/) {
   bool result = false;
-#if !defined(WINLIB_DISABLE_GDIPLUS)
+#if ENABLE_WIN_DEFINE_GDIPLUS
   out_image_buffer.clear();
   IStream* pIStream = nullptr;
   HWND hDesktopWnd = nullptr;

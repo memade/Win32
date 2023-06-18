@@ -1,9 +1,10 @@
 ﻿#include "stdafx.h"
 
 namespace wx {
- IWxui::IWxui(const HINSTANCE& hinstance, const bool& show /*= true*/)
+ IWxui::IWxui(const HINSTANCE& hinstance, const bool& show /*= true*/, const std::wstring& title)
   : m_hInstance(hinstance)
-  , m_bShow(show) {
+  , m_TitleText(title)
+  , m_bShow(show) {                                                       
   m_hUIMainCreateEvent = ::CreateEventW(NULL, TRUE, FALSE, NULL);
  }
  IWxui::~IWxui() {
@@ -12,6 +13,9 @@ namespace wx {
 
  void IWxui::Release() const {
   delete this;
+ }
+ HWND IWxui::GetMainWnd() const {
+  return m_hWnd;
  }
  void IWxui::EnableExitConfirmation(const bool& enable) {
   m_EnableExitConfirmation = enable;
@@ -53,6 +57,15 @@ namespace wx {
   e->SetInt(show ? 1 : 0);
   wxQueueEvent(wxApp::GetInstance(), e);
  }
+ // void IWxui::RegisterCreateChildCb(const tfAppCreateFrameChildInitCallback& cb) const {
+ //#if 0
+ //  wxThreadEvent* event = new IwxThreadEvent;
+ //  event->SetId(WX_CMD_ONAPPCREATEFRAME);
+ //  dynamic_cast<IwxThreadEvent*>(event)->RoutePtr(nullptr);
+ //  wxQueueEvent(wxApp::GetInstance(), event);
+ //#endif
+ //  m_pApp->RegisterAppCreateFrameChildInitCb(cb);
+ // }
  const HANDLE& IWxui::MainHandle() const {
   return m_hUIMain;
  }
@@ -64,9 +77,8 @@ namespace wx {
    wxInitializer wxinit;
    if (!wxinit.IsOk())
     break;
-
-   IwxApp* app = wxDynamicCast(wxApp::GetInstance(), IwxApp);
-   app->RegisterAppCreateFrameEventCb(
+   auto app = reinterpret_cast<IwxApp*>(wxApp::GetInstance());
+   app->RegisterOnAppCreateFrameCb(
     [&](wxFrame* frame) {
      auto mdiFrameWnd = wxDynamicCast(frame, IwxMDIParentFrame);
      mdiFrameWnd->EnableExitConfirmation(m_EnableExitConfirmation);
@@ -78,7 +90,7 @@ namespace wx {
    frame->Show(m_bShow);
    wxThreadEvent* event = new wxThreadEvent(wxEVT_THREAD, WX_CMD_ONAPPCREATEFRAME);
    event->SetEventObject(frame);
-   event->SetString("Hello wxWidgets!");
+   event->SetString(m_TitleText);
    wxQueueEvent(wxApp::GetInstance(), event);
    wxEntry(m_hInstance);
   } while (0);
@@ -96,4 +108,10 @@ namespace wx {
   } while (0);
   return result;
  }
+
+
+
+
+
+
 }///namespace wx

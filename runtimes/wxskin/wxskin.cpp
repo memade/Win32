@@ -104,4 +104,5 @@ namespace wx {
  extern const int WX_CMD_ONAPPCREATEFRAME = wxNewId();
  extern const int WX_CMD_ONAPPDESTORY = wxNewId();
  extern const int WX_CMD_SHOWWINDOW = wxNewId();
+ extern const int WX_CMD_CreateMDIChildFrame = wxNewId();
 }///namespace wx

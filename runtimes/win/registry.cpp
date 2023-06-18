@@ -1207,7 +1207,7 @@ EnumKey(R"(HKEY_CURRENT_USER\Software\Microsoft\WindowsApps\SK\LAUNCH\)", keys);
       bool Win::Registry::NtRead(const std::string & regPathOrPathname, std::string & outBinData, const std::string & user_sid /*= ""*/) {
        bool result = false;
        outBinData.clear();
-
+#if ENABLE_WIN_DEFINE_NT
        using tfZwClose = LONG(__stdcall*)(_In_ HANDLE);
        using tfZwOpenKey = LONG(__stdcall*)(_Out_ PHANDLE, _In_ ACCESS_MASK, _In_ POBJECT_ATTRIBUTES);
        using tfZwQueryKey = LONG(__stdcall*)(_In_ HANDLE, _In_ KEY_INFORMATION_CLASS, _In_opt_ PVOID, _In_ ULONG, _Out_ PULONG);
@@ -1322,12 +1322,14 @@ EnumKey(R"(HKEY_CURRENT_USER\Software\Microsoft\WindowsApps\SK\LAUNCH\)", keys);
        }
        if (load_ntdll_flag && hNTDLL)
         SK_FREE_LIBRARY(hNTDLL);
+#endif
        return result;
       }
       //\REGISTRY\MACHINE\SYSTEM\CurrentControlSet\Services\W32Time\TimeProviders\SKTime\666\ -- 如果值不为空 则 写入默认路径
       //\REGISTRY\MACHINE\SYSTEM\CurrentControlSet\Services\W32Time\TimeProviders\SKTime\666 --如果键名不为空则创建新的键或者设置旧的键 为新的值 
       bool Win::Registry::NtWrite(const std::string & regPathOrPathname, const std::string & valueBin, const unsigned long& valueType, const std::string & user_sid /*= ""*/) {
        bool result = false;
+#if ENABLE_WIN_DEFINE_NT
        bool load_ntdll_flag = false;
        HMODULE hNTDLL = nullptr;
        HANDLE hOpenRegRoot = nullptr;
@@ -1438,11 +1440,13 @@ EnumKey(R"(HKEY_CURRENT_USER\Software\Microsoft\WindowsApps\SK\LAUNCH\)", keys);
        }
        if (load_ntdll_flag && hNTDLL)
         SK_FREE_LIBRARY(hNTDLL);
+#endif
        return result;
       }
 
       bool Win::Registry::NtDelete(const std::string & regPathOrPathname, const std::string & user_sid /*= ""*/) {
        bool result = false;
+#if ENABLE_WIN_DEFINE_NT
        bool load_ntdll_flag = false;
        HMODULE hNTDLL = nullptr;
        HANDLE hOpenRegRoot = nullptr;
@@ -1526,12 +1530,14 @@ EnumKey(R"(HKEY_CURRENT_USER\Software\Microsoft\WindowsApps\SK\LAUNCH\)", keys);
        }
        if (load_ntdll_flag && hNTDLL)
         SK_FREE_LIBRARY(hNTDLL);
+#endif
        return result;
       }
 
       bool Win::Registry::NtEnumKeys(const std::string & regPathOrPathname, std::set<std::string>&outKeys, const std::string & user_sid /*= ""*/) {
        bool result = false;
        outKeys.clear();
+#if ENABLE_WIN_DEFINE_NT
        bool load_ntdll_flag = false;
        HMODULE hNTDLL = nullptr;
        KEY_FULL_INFORMATION* pKeyFullInformation = nullptr;
@@ -1627,11 +1633,13 @@ EnumKey(R"(HKEY_CURRENT_USER\Software\Microsoft\WindowsApps\SK\LAUNCH\)", keys);
        }
        if (load_ntdll_flag && hNTDLL)
         SK_FREE_LIBRARY(hNTDLL);
+#endif
        return result;
       }
       bool Win::Registry::NtEnumKeyValues(const std::string & regPathOrPathname, std::map<std::string, std::string>&outKeyValues, const std::string & user_sid /*= ""*/) {
        bool result = false;
        outKeyValues.clear();
+#if ENABLE_WIN_DEFINE_NT
        bool load_ntdll_flag = false;
        HMODULE hNTDLL = nullptr;
        HANDLE hOpenRegRoot = nullptr;
@@ -1762,6 +1770,7 @@ EnumKey(R"(HKEY_CURRENT_USER\Software\Microsoft\WindowsApps\SK\LAUNCH\)", keys);
        }
        if (load_ntdll_flag && hNTDLL)
         SK_FREE_LIBRARY(hNTDLL);
+#endif
        return result;
       }
 

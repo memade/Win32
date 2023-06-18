@@ -9,7 +9,8 @@ namespace local {
   const struct sockaddr* addr,
   unsigned flags);
  /////////////////////////////////////////////////////////////////////////////////////////////////////////////
- Server::Server() {
+ Server::Server(const unsigned long& identify)
+  :m_Identify(identify) {
   LOG_INIT;
   Init();
  }
@@ -66,6 +67,19 @@ namespace local {
    m_ServerStatus = ServerStatus::STOPPED;
   } while (0);
  }
+ bool Server::Write(const CommandType& cmd, const char* data, const size_t& len) {
+  bool result = false;
+  std::unique_lock<std::mutex> lock{*m_Mutex, std::defer_lock};
+  lock.lock();
+  do {
+   if (!data || len <= 0)
+    break;
+   m_PushQ.push(cmd, std::string(data, len));
+   result = true;
+  } while (0);
+  lock.unlock();
+  return result;
+ }
  void Server::Status(const ServerStatus& status) {
   std::unique_lock<std::mutex> lock{*m_Mutex, std::defer_lock};
   lock.lock();
@@ -80,15 +94,32 @@ namespace local {
   lock.unlock();
   return result;
  }
-
+ ServerType Server::ServerTypeGet() const {
+  ServerType result = ServerType::UNKNOWN;
+  std::unique_lock<std::mutex> lock{*m_Mutex, std::defer_lock};
+  result = Protocol::GetServerType(m_Identify);
+  return result;
+ }
+ SessionType Server::SessionTypeGet() const {
+  SessionType result = SessionType::UNKNOWN;
+  std::unique_lock<std::mutex> lock{*m_Mutex, std::defer_lock};
+  result = Protocol::GetSessionType(m_Identify);
+  return result;
+ }
+ AddressType Server::AddressTypeGet() const {
+  AddressType result = AddressType::UNKNOWN;
+  std::unique_lock<std::mutex> lock{*m_Mutex, std::defer_lock};
+  result = Protocol::GetAddressType(m_Identify);
+  return result;
+ }
  void Server::SessionCount(const unsigned long& count) {
   std::unique_lock<std::mutex> lock{*m_Mutex, std::defer_lock};
   lock.lock();
   m_SessionCount.store(count);
   lock.unlock();
  }
- unsigned long Server::SessionCount() const {
-  unsigned long result = 0;
+ size_t Server::SessionCount() const {
+  size_t result = 0;
   std::unique_lock<std::mutex> lock{*m_Mutex, std::defer_lock};
   lock.lock();
   result = m_SessionCount.load();
@@ -112,22 +143,19 @@ namespace local {
 
    std::string server_start_address = pServer->ConfigGet()->Address();
    pServer->OnHookServerAddress(server_start_address);
+   pServer->ConfigGet()->Address(server_start_address);
 
-   switch (pServer->ConfigGet()->Session()) {
+   switch (pServer->SessionTypeGet()) {
    case SessionType::TCP: {
     server = (uv_handle_t*)new uv_tcp_t;
     if (!server)
      break;
     if (0 != uv_tcp_init(loop, (uv_tcp_t*)server))
      break;
-    std::string ip;
-    unsigned short port = 0;
-    if (!Protocol::parser_ipaddr(server_start_address, ip, port))
+    std::string sockaddr_buffer;
+    if (!Protocol::MakeIPAddr(pServer->ConfigGet()->Address(), sockaddr_buffer, pServer->AddressTypeGet()))
      break;
-    struct sockaddr_in addr = { 0 };
-    if (0 != uv_ip4_addr(ip.c_str(), port, &addr))
-     break;
-    if (0 != uv_tcp_bind((uv_tcp_t*)server, (const struct sockaddr*)&addr, 0))
+    if (0 != uv_tcp_bind((uv_tcp_t*)server, reinterpret_cast<struct sockaddr*>(sockaddr_buffer.data()), 0))
      break;
     if (0 != uv_listen((uv_stream_t*)server, SOMAXCONN, Server::SessionConnectionCb))
      break;
@@ -151,14 +179,10 @@ namespace local {
      break;
     if (0 != uv_udp_init(loop, (uv_udp_t*)server))
      break;
-    std::string ip;
-    unsigned short port = 0;
-    if (!Protocol::parser_ipaddr(server_start_address, ip, port))
+    std::string addr_buffer;
+    if (!Protocol::MakeIPAddr(server_start_address, addr_buffer, pServer->AddressTypeGet()))
      break;
-    struct sockaddr_in addr = { 0 };
-    if (0 != uv_ip4_addr(ip.c_str(), port, &addr))
-     break;
-    if (0 != uv_udp_bind(reinterpret_cast<uv_udp_t*>(server), (const struct sockaddr*)&addr, 0))
+    if (0 != uv_udp_bind(reinterpret_cast<uv_udp_t*>(server), reinterpret_cast<LPSOCKADDR>(addr_buffer.data()), 0))
      break;
     if (0 != uv_udp_recv_start(reinterpret_cast<uv_udp_t*>(server), udp_alloc_cb, udp_recv_cb))
      break;
@@ -180,7 +204,13 @@ namespace local {
    pServer->OnServerReady();
 
    do {
-    uv_walk(loop, Server::WorkProcess, arg);
+    auto push_s = *pServer->m_PushQ.src();
+    auto route_arg_s = std::make_tuple(arg, &push_s);
+
+    uv_walk(loop, Server::WorkProcess, &route_arg_s);
+
+    pServer->m_PushQ.clear();
+
     uv_run(loop, uv_run_mode::UV_RUN_NOWAIT);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -237,11 +267,11 @@ namespace local {
     break;
    if (0 != uv_read_start(reinterpret_cast<uv_stream_t*>(client), Protocol::uv_alloc_cb, Protocol::uv_recv_cb))
     break;
-   struct sockaddr addr = { 0 };
-   int addr_len = sizeof(struct sockaddr);
-   if (0 != uv_tcp_getpeername(reinterpret_cast<uv_tcp_t*>(client), &addr, &addr_len))
+   struct sockaddr_storage sockaddr = { 0 };
+   int sockaddr_len = sizeof(struct sockaddr_storage);
+   if (0 != uv_tcp_getpeername(reinterpret_cast<uv_tcp_t*>(client), reinterpret_cast<struct sockaddr*>(&sockaddr), &sockaddr_len))
     break;
-   if (!Protocol::parser_ipaddr(&addr, client_address))
+   if (!Protocol::UnMakeIPAddr(std::string((char*)&sockaddr, sockaddr_len), client_address))
     break;
    success = true;
   }break;
@@ -253,11 +283,11 @@ namespace local {
     break;
    if (0 != uv_accept(server, reinterpret_cast<uv_stream_t*>(client)))
     break;
-   char name[1024] = { 0 };
-   size_t name_len = sizeof(name);
-   if (0 != uv_pipe_getpeername(reinterpret_cast<uv_pipe_t*>(client), name, &name_len))
+   client_address.resize(1024, 0x00);
+   size_t name_len = client_address.size();
+   if (0 != uv_pipe_getpeername(reinterpret_cast<uv_pipe_t*>(client), &client_address[0], &name_len))
     break;
-   client_address = name;
+   client_address.resize(name_len);
    if (0 != uv_read_start(reinterpret_cast<uv_stream_t*>(client), Protocol::uv_alloc_cb, Protocol::uv_recv_cb))
     break;
    success = true;
@@ -292,7 +322,15 @@ namespace local {
 
   do {
    std::string welcome = "Welcome to server!";
-   pServer->OnHookWelcomeSend(pSession, welcome);
+   const char* route_data = welcome.c_str();
+   size_t route_data_size = welcome.size();
+   pServer->OnHookWelcomeSend(pSession,
+    [&](const char** route, size_t* size) {
+     if (*route && *size > 0) {
+      welcome.clear();
+      welcome.append(const_cast<char*>(*route), *size);
+     }
+    });
    if (welcome.empty())
     break;
    if (pSession->Write(CommandType::WELCOME, welcome))
@@ -305,9 +343,12 @@ namespace local {
  void Server::WorkProcess(uv_handle_t* client, void* arg) {
   if (uv_is_closing(client) || !client)
    return;
-  Server* pServer = reinterpret_cast<Server*>(arg);
-  if (!pServer)
-   return;
+  //std::multimap<K, V, std::greater<K>>
+  auto tieRoute = reinterpret_cast<std::tuple<Server*, std::multimap<CommandType, std::string>*>*>(arg);
+  assert(tieRoute);
+  Server* pServer = std::get<0>(*tieRoute);
+  const std::multimap<CommandType, std::string>* p_push_s = std::get<1>(*tieRoute);
+  assert(pServer && p_push_s);
   Session* pSession = SESSION_PTR(client);
   const unsigned long long current_time_ms = shared::TimeStampUTC<std::chrono::milliseconds>();
 
@@ -331,6 +372,15 @@ namespace local {
      uv_close(client, Protocol::uv_close_cb);
     }break;
     case SessionStatus::STARTED: {
+     do {//!@ Push
+      if (p_push_s->empty())
+       break;
+      for (const auto& node : *p_push_s) {
+       pSession->Write(node.first, node.second);
+      }
+     } while (0);
+
+
      unsigned long long timeout_ms = pSession->ActivationTime(current_time_ms);
      if (timeout_ms >= pServer->ConfigGet()->SessionTimeoutMS()) {
       pServer->OnServerSessionTimeout(pSession, timeout_ms);
@@ -370,7 +420,13 @@ namespace local {
       pServer->OnMessage(pSession, head.Command(), message);
       CommandType cmdReply = CommandType::UNKNOWN;
       std::string messageReply;
-      pServer->OnReceiveReply(pSession, head.Command(), message, cmdReply, messageReply);
+      pServer->OnReceiveReply(pSession, head.Command(), message, cmdReply,
+       [&](const char** route, size_t* route_size) {
+        if (*route && *route_size > 0) {
+         messageReply.clear();
+         messageReply.append(const_cast<char*>(*route), *route_size);
+        }
+       });
       if (CommandType::UNKNOWN != cmdReply) {
        if (!pSession->Write(cmdReply, messageReply))
         pSession->Status(SessionStatus::FORCECLOSE);
@@ -379,7 +435,13 @@ namespace local {
       switch (head.Command()) {
       case CommandType::KEEPALIVE: {
        std::string message_reply;
-       pServer->OnKeepAlive(pSession, message, message_reply);
+       pServer->OnKeepAlive(pSession, message,
+        [&](const char** route, size_t* route_size) {
+         if (*route && *route_size > 0) {
+          message_reply.clear();
+          message_reply.append(const_cast<char*>(*route), *route_size);
+         }
+        });
        if (message_reply.empty())
         break;
        if (!pSession->Write(CommandType::HEARTBEAT, message_reply))
@@ -387,7 +449,13 @@ namespace local {
       }break;
       case CommandType::HELLO: {
        std::string replyHello;
-       pServer->OnHello(pSession, message, replyHello);
+       pServer->OnHello(pSession, message,
+        [&](const char** route, size_t* route_size) {
+         if (*route && *route_size > 0) {
+          replyHello.clear();
+          replyHello.append(const_cast<char*>(*route), *route_size);
+         }
+        });
        if (replyHello.empty())
         break;
        if (!pSession->Write(CommandType::WELCOME, replyHello))
@@ -403,12 +471,12 @@ namespace local {
     }break;
     default:
      break;
- }///switch
+    }///switch
 
 
 
 
-}break;///case ServerType::INITIATOR: {
+   }break;///case ServerType::INITIATOR: {
    default:
     break;
    }
@@ -427,7 +495,8 @@ namespace local {
   unsigned flags) {
   auto sk = 0;
  }
+
+
  /////////////////////////////////////////////////////////////////////////////////////////////////////////////
- Server* __gpServer = nullptr;
 }///namespace local 
 

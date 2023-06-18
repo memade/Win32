@@ -1,5 +1,5 @@
 function(install_sub_project entry_path entry_name)
-		file(GLOB SRCS "${entry_path}/*.c" "${entry_path}/*.cc" "${entry_path}/*.cpp")	
+		file(GLOB SRCS "${entry_path}/*.c" "${entry_path}/*.cc" "${entry_path}/*.cpp" "${entry_path}/*.rc")	
 		file(GLOB HEADS "${entry_path}/*.h" "${entry_path}/*.hpp")	
 		set(SOURCES
 		${SRCS}
@@ -74,6 +74,17 @@ foreach(entry ${entries})
 			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
 			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
 			)
+  elseif(${origin_entry_name} STREQUAL "curl_test")
+  	target_include_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_INCLUDE_DIR}
+			${SOLUTION_ROOT_DIR}/third_party/
+			)
+   target_link_directories(${origin_entry_name} 
+			PRIVATE
+			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
+			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
+			)	  
   elseif(${origin_entry_name} STREQUAL "uv_server_test" OR ${origin_entry_name} STREQUAL "uv_client_test")
   	target_include_directories(${origin_entry_name} 
 			PRIVATE 
@@ -85,7 +96,7 @@ foreach(entry ${entries})
 			PRIVATE
 			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
 			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
-			)	  
+			)
   elseif(${origin_entry_name} STREQUAL "encrypt_test")
   	target_include_directories(${origin_entry_name} 
 			PRIVATE 
@@ -96,7 +107,69 @@ foreach(entry ${entries})
 			PRIVATE
 			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
 			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
+			)	
+  elseif(${origin_entry_name} STREQUAL "hook_key_test")
+  	target_include_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_INCLUDE_DIR}
+			${SOLUTION_ROOT_DIR}/third_party/
 			)
+   target_link_directories(${origin_entry_name} 
+			PRIVATE
+			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
+			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
+			)   
+  elseif(${origin_entry_name} STREQUAL "ssl_test")
+  	target_include_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_INCLUDE_DIR}
+			${SOLUTION_ROOT_DIR}/third_party/
+			)
+   target_link_directories(${origin_entry_name} 
+			PRIVATE
+			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
+			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
+			)
+  elseif(${origin_entry_name} STREQUAL "cef_test")
+  
+   add_custom_command(
+   TARGET ${origin_entry_name}
+   POST_BUILD
+   COMMAND mt.exe -nologo -manifest ${SOLUTION_ROOT_DIR}/runtimes/cef/109.0.5414.120/x64/app.exe.manifest ${SOLUTION_ROOT_DIR}/runtimes/cef/109.0.5414.120/x64/compatibility.manifest -outputresource:$(OutDir)$(TargetName)$(TargetExt)
+   VERBATIM
+   )
+   
+  	target_include_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_INCLUDE_DIR}
+			${SOLUTION_ROOT_DIR}/third_party/
+			)
+   target_link_directories(${origin_entry_name} 
+			PRIVATE
+			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
+			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
+			)
+  elseif(${origin_entry_name} STREQUAL "wxcmd_test")
+			target_include_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_INCLUDE_DIR}
+			${SOLUTION_ROOT_DIR}/third_party/
+			${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/include/
+			${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/include/msvc/
+			)
+			
+			set(WXLIB_DIR ${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/lib/vc_lib/)
+			if(${CMAKE_VS_PLATFORM_NAME} STREQUAL "x64")
+			set(WXLIB_DIR ${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/lib/vc_x64_lib/)
+			endif(${CMAKE_VS_PLATFORM_NAME} STREQUAL "x64")
+			
+			target_link_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_ROOT_DIR}/third_party/wxWidgets/wxWidgets-3.2.2.1/lib/
+			${WXLIB_DIR}/
+			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
+			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
+			)	
 		elseif(${origin_entry_name} STREQUAL "wxwidgets_test")
 			target_include_directories(${origin_entry_name} 
 			PRIVATE 

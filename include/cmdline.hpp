@@ -3,76 +3,50 @@
 
 namespace shared {
 
- enum class ProcessType : unsigned long long {
-  UNKNOWN = 0,
-  MAIN = 1,
-  CHILD_TEST,
-#if 0
-  PROCESS_TYPE_MAIN = 0,
-  PROCESS_TYPE_CEF = 1,
-  PROCESS_TYPE_IMGUI = 2,
-  PROCESS_TYPE_DUI = 3,
-  PROCESS_TYPE_UNKNOWN = 4,
-
-  PROCESS_TYPE_BEGIN = PROCESS_TYPE_MAIN,
-  PROCESS_TYPE_END = PROCESS_TYPE_DUI,
-
-  PROCESS_TYPE_DEFAULT = PROCESS_TYPE_DUI,
-#endif
-  BEGIN = MAIN,
-  END = CHILD_TEST,
- };
-
- enum class CmdTag : unsigned long {
-  IMAGE_PATHNAME = 0,
-  TYPE = 1,/*process type*/
-  TCP_SERVER,/*process server tcp = address*/
-  TCP_CLIENT,/*process client tcp = address*/
-  IPC_SERVER,
-  IPC_CLIENT,
-  UDP_SERVER,
-  UDP_CLIENT,
-
-  BEGIN = IMAGE_PATHNAME,
-  END = UDP_CLIENT,
- };
-
-
- static /*const*/ std::map<CmdTag, std::wstring> CmdTagString = {
-  {CmdTag::IMAGE_PATHNAME,L"--image-pathname"},
-  {CmdTag::TYPE,L"--type"},
-  {CmdTag::TCP_SERVER,L"--tcp-server"},
-  {CmdTag::TCP_CLIENT,L"--tcp-client"},
-  {CmdTag::IPC_SERVER,L"--ipc-server"},
-  {CmdTag::IPC_CLIENT,L"--ipc-client"},
-  {CmdTag::UDP_SERVER,L"--udp-server"},
-  {CmdTag::UDP_CLIENT,L"--udp-client"},
- };
-
-
- class Cmdline final {
-  std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();
+ template<typename TRuleType, typename TRuleStringType = std::wstring, typename CmdLineStringType = std::wstring>
+ class CmdLine final {
  public:
-  Cmdline(LPCWSTR input_cmd_string)
-   : cmd_string_(input_cmd_string ? shared::IConv::ToLowerW(input_cmd_string) : L"") {
+  CmdLine(const std::map<TRuleType, TRuleStringType>& input_rule_map,
+   const CmdLineStringType& input_cmd_string,
+   const bool& bEncryption)
+   : rule_map_(input_rule_map)
+   , cmd_string_(input_cmd_string)
+   , m_bEncryption(bEncryption) {
    Init();
   }
-  ~Cmdline() {
+  ~CmdLine() {
    UnInit();
   }
+  void Release() const { delete this; }
  public:
-  inline std::wstring GetValue(const std::wstring&) const;
-  inline std::wstring GetValue(const CmdTag&) const;
-  inline ProcessType GetType() const;
- private:
+  CmdLineStringType GetValue(const TRuleType& key) const {
+   CmdLineStringType result;
+   std::lock_guard<std::mutex> lock{*m_Mutex};
+   do {
+    auto found = rule_map_.find(key);
+    if (found == rule_map_.end())
+     break;
+    auto found_node = parser_cmd_map_.find(found->second);
+    if (found_node == parser_cmd_map_.end())
+     break;
+    result = found_node->second;
+   } while (0);
+   return result;
+  }
+ protected:
+  const bool m_bEncryption = false;
+  std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();
   inline void Init();
   inline void UnInit();
- private:
-  std::map<std::wstring, std::wstring> cmd_map_;
-  const std::wstring cmd_string_;
+  std::map<CmdLineStringType, CmdLineStringType> parser_cmd_map_;
+  const CmdLineStringType cmd_string_;
+  const std::map<TRuleType, TRuleStringType> rule_map_;
  };
 
- inline void Cmdline::Init() {
+
+
+ template<typename TRuleType, typename TRuleStringType, typename CmdLineStringType>
+ inline void CmdLine<TRuleType, TRuleStringType, CmdLineStringType>::Init() {
   do {
    if (cmd_string_.empty())
     break;
@@ -91,65 +65,60 @@ namespace shared {
     }
 
     if (i == 0 && shared::Win::AccessW(arg)) {
-     cmd_map_.emplace(CmdTagString[CmdTag::IMAGE_PATHNAME], arg);
+     /*parser_cmd_map_.emplace(rule_map_[CmdTag::IMAGE_PATHNAME], arg);*/
      continue;
     }
     std::vector<std::wstring> spilts = shared::Win::StringSpiltW(arg, L"=");
     if (spilts.empty())
      continue;
-    cmd_map_.emplace(spilts[0], spilts.size() > 1 ? spilts[1] : L"");
+    parser_cmd_map_.emplace(spilts[0], spilts.size() > 1 ? spilts[1] : L"");
    }
 
-   auto found_image_pathname = cmd_map_.find(CmdTagString[CmdTag::IMAGE_PATHNAME]);
-   if (found_image_pathname == cmd_map_.end()) {
-    cmd_map_.emplace(CmdTagString[CmdTag::IMAGE_PATHNAME], shared::Win::GetModulePathnameW());
+#if 0
+   auto found_image_pathname = parser_cmd_map_.find(rule_map_[CmdTag::IMAGE_PATHNAME]);
+   if (found_image_pathname == parser_cmd_map_.end()) {
+    parser_cmd_map_.emplace(rule_map_[CmdTag::IMAGE_PATHNAME], shared::Win::GetModulePathnameW());
    }
 
-   auto found_type = cmd_map_.find(CmdTagString[CmdTag::TYPE]);
-   if (found_type == cmd_map_.end()) {
-    cmd_map_.emplace(CmdTagString[CmdTag::TYPE], L"1");
+   auto found_type = parser_cmd_map_.find(rule_map_[CmdTag::TYPE]);
+   if (found_type == parser_cmd_map_.end()) {
+    parser_cmd_map_.emplace(rule_map_[CmdTag::TYPE], L"1");
    }
+#endif
 
    //!@ Clearup
-   for (auto it = cmd_map_.begin(); it != cmd_map_.end();) {
+   for (auto it = parser_cmd_map_.begin(); it != parser_cmd_map_.end();) {
 
     bool exists = false;
-    for (const auto& node : CmdTagString) {
+    for (const auto& node : rule_map_) {
      if (node.second.compare(it->first) == 0) {
       exists = true;
       break;
      }
     }
     if (!exists)
-     it = cmd_map_.erase(it);
+     it = parser_cmd_map_.erase(it);
     else
      ++it;
    }
 
   } while (0);
  }
- inline void Cmdline::UnInit() {
 
+ template<typename TRuleType, typename TRuleStringType, typename CmdLineStringType>
+ inline void CmdLine<TRuleType, TRuleStringType, CmdLineStringType>::UnInit() {
+  parser_cmd_map_.clear();
  }
- inline ProcessType Cmdline::GetType() const {
-  ProcessType result = ProcessType::MAIN;
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  do {
-   auto found = cmd_map_.find(CmdTagString[CmdTag::TYPE]);
-   if (found == cmd_map_.end())
-    break;
-   result = static_cast<decltype(result)>(_wtol(found->second.c_str()));
-  } while (0);
-  return result;
- }
+
+#if 0
  inline std::wstring Cmdline::GetValue(const CmdTag& tag) const {
   std::wstring result;
   std::lock_guard<std::mutex> lock{*m_Mutex};
   do {
    if (tag<CmdTag::BEGIN || tag>CmdTag::END)
     break;
-   auto found = cmd_map_.find(CmdTagString[tag]);
-   if (found == cmd_map_.end())
+   auto found = parser_cmd_map_.find(CmdTagString[tag]);
+   if (found == parser_cmd_map_.end())
     break;
    result = found->second;
   } while (0);
@@ -159,13 +128,14 @@ namespace shared {
   std::wstring result;
   std::lock_guard<std::mutex> lock{*m_Mutex};
   do {
-   auto found = cmd_map_.find(key);
-   if (found == cmd_map_.end())
+   auto found = parser_cmd_map_.find(key);
+   if (found == parser_cmd_map_.end())
     break;
    result = found->second;
   } while (0);
   return result;
  }
+#endif
 }///namespace shared
 
 

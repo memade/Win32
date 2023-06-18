@@ -29,6 +29,12 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cjson", "..\third_party\cJS
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Detours", "..\third_party\Detours-3.3.9\build\Detours.vcxproj", "{E666EB3C-BD97-4CFA-B8CD-9051DEF74E19}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libcef_dll_wrapper", "..\third_party\cef\109.0.5414.120\x64\build\libcef_dll_wrapper\libcef_dll_wrapper.vcxproj", "{9866040D-F509-30BD-979E-41FE1D08020F}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libcurl_zlib_ssl3-7.85.0", "..\third_party\curl-7.85.0\projects\Windows\VC17.3.5\lib\libcurl_zlib_ssl3-7.85.0.vcxproj", "{E369257D-A0D3-4D84-8163-EE12C02A942A}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "curlpp-0.8.1", "..\third_party\curlpp-0.8.1\build\curlpp-0.8.1.vcxproj", "{CC853CF8-008B-4BBD-A627-F42FBBD72E83}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -141,6 +147,30 @@ Global
 		{E666EB3C-BD97-4CFA-B8CD-9051DEF74E19}.Release|Win32.Build.0 = Release|Win32
 		{E666EB3C-BD97-4CFA-B8CD-9051DEF74E19}.Release|x64.ActiveCfg = Release|x64
 		{E666EB3C-BD97-4CFA-B8CD-9051DEF74E19}.Release|x64.Build.0 = Release|x64
+		{9866040D-F509-30BD-979E-41FE1D08020F}.Debug|Win32.ActiveCfg = Debug|x64
+		{9866040D-F509-30BD-979E-41FE1D08020F}.Debug|Win32.Build.0 = Debug|x64
+		{9866040D-F509-30BD-979E-41FE1D08020F}.Debug|x64.ActiveCfg = Debug|x64
+		{9866040D-F509-30BD-979E-41FE1D08020F}.Debug|x64.Build.0 = Debug|x64
+		{9866040D-F509-30BD-979E-41FE1D08020F}.Release|Win32.ActiveCfg = Release|x64
+		{9866040D-F509-30BD-979E-41FE1D08020F}.Release|Win32.Build.0 = Release|x64
+		{9866040D-F509-30BD-979E-41FE1D08020F}.Release|x64.ActiveCfg = Release|x64
+		{9866040D-F509-30BD-979E-41FE1D08020F}.Release|x64.Build.0 = Release|x64
+		{E369257D-A0D3-4D84-8163-EE12C02A942A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{E369257D-A0D3-4D84-8163-EE12C02A942A}.Debug|Win32.Build.0 = Debug|Win32
+		{E369257D-A0D3-4D84-8163-EE12C02A942A}.Debug|x64.ActiveCfg = Debug|x64
+		{E369257D-A0D3-4D84-8163-EE12C02A942A}.Debug|x64.Build.0 = Debug|x64
+		{E369257D-A0D3-4D84-8163-EE12C02A942A}.Release|Win32.ActiveCfg = Release|Win32
+		{E369257D-A0D3-4D84-8163-EE12C02A942A}.Release|Win32.Build.0 = Release|Win32
+		{E369257D-A0D3-4D84-8163-EE12C02A942A}.Release|x64.ActiveCfg = Release|x64
+		{E369257D-A0D3-4D84-8163-EE12C02A942A}.Release|x64.Build.0 = Release|x64
+		{CC853CF8-008B-4BBD-A627-F42FBBD72E83}.Debug|Win32.ActiveCfg = Debug|Win32
+		{CC853CF8-008B-4BBD-A627-F42FBBD72E83}.Debug|Win32.Build.0 = Debug|Win32
+		{CC853CF8-008B-4BBD-A627-F42FBBD72E83}.Debug|x64.ActiveCfg = Debug|x64
+		{CC853CF8-008B-4BBD-A627-F42FBBD72E83}.Debug|x64.Build.0 = Debug|x64
+		{CC853CF8-008B-4BBD-A627-F42FBBD72E83}.Release|Win32.ActiveCfg = Release|Win32
+		{CC853CF8-008B-4BBD-A627-F42FBBD72E83}.Release|Win32.Build.0 = Release|Win32
+		{CC853CF8-008B-4BBD-A627-F42FBBD72E83}.Release|x64.ActiveCfg = Release|x64
+		{CC853CF8-008B-4BBD-A627-F42FBBD72E83}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -3,6 +3,15 @@
 namespace local {
 
  ////////////////////////////////////////////////////////////////////////////////////////////////////////
+ ServerType Protocol::GetServerType(const unsigned long& input) {
+  return static_cast<ServerType>(static_cast<unsigned long>(ServerType::MAX) & input);
+ }
+ SessionType Protocol::GetSessionType(const unsigned long& input) {
+  return static_cast<SessionType>(static_cast<unsigned long>(SessionType::MAX) & input);
+ }
+ AddressType Protocol::GetAddressType(const unsigned long& input) {
+  return static_cast<AddressType>(static_cast<unsigned long>(AddressType::MAX) & input);
+ }
  std::string Protocol::MakeStream(const HEAD& input_head, const std::string& input_data) {
   std::string result;
   do {
@@ -63,7 +72,55 @@ namespace local {
   } while (0);
   return result;
  }
- bool Protocol::parser_ipaddr(const sockaddr* in_addr, std::string& address) {
+ bool Protocol::MakeIPAddr(
+  const std::string& address_string,
+  std::string& out_addr_buffer/*out sockaddr_in | sockaddr or sockaddr_in6 buffer*/,
+  const AddressType& ip_type /*= AF_INET*//*AF_INET or AF_INET6*/) {
+  bool result = false;
+  out_addr_buffer.clear();
+  /*WSADATA wsaData = { 0 };
+  if (0 != WSAStartup(MAKEWORD(2, 2), &wsaData))
+   break;*/
+  do {
+   if (address_string.empty())
+    break;
+   int addr_len = sizeof(struct sockaddr_storage);
+   out_addr_buffer.resize(addr_len);
+   if (0 != WSAStringToAddressA((LPSTR)address_string.c_str(), ip_type == AddressType::IPV4 ? AF_INET : AF_INET6, NULL, (LPSOCKADDR)&out_addr_buffer[0], &addr_len))
+    break;
+   out_addr_buffer.resize(addr_len);
+   result = true;
+  } while (0);
+  if (!result)
+   out_addr_buffer.clear();
+  /*WSACleanup();*/
+  return result;
+ }
+
+ bool Protocol::UnMakeIPAddr(
+  const std::string& address_buffer/*in sockaddr_in | sockaddr or sockaddr_in6 buffer*/,
+  std::string& out_address_string) {
+  bool result = false;
+  out_address_string.clear();
+  /*WSADATA wsaData = { 0 };
+  if (0 != WSAStartup(MAKEWORD(2, 2), &wsaData))
+   break;*/
+  do {
+   if (address_buffer.size() < sizeof(struct sockaddr_in))
+    break;
+   out_address_string.resize(1024, 0x00);
+   DWORD out_buffer_len = out_address_string.size();
+   if (0 != WSAAddressToStringA((LPSOCKADDR)address_buffer.data(), address_buffer.size(), NULL, &out_address_string[0], &out_buffer_len))
+    break;
+   out_address_string.resize(out_buffer_len);
+   result = true;
+  } while (0);
+  /*WSACleanup();*/
+  return result;
+ }
+
+#if 0
+ bool Protocol::parser_ipaddr(const sockaddr* in_addr, std::string& address, const IPPROTO& ipv) {
   bool result = false;
   address.clear();
   do {
@@ -71,21 +128,21 @@ namespace local {
     break;
    std::string ip;
    u_short port = 0;
-   if (!parser_ipaddr((const sockaddr_storage*)in_addr, ip, port, IPPROTO::IPPROTO_IPV4))
+   if (!parser_ipaddr((const sockaddr_storage*)in_addr, ip, port, ipv))
     break;
    address = std::format("{}:{}", ip, port);
    result = true;
   } while (0);
   return result;
  }
- bool Protocol::parser_ipaddr(const sockaddr* in_addr, char* address) {
+ bool Protocol::parser_ipaddr(const sockaddr* in_addr, char* address, const IPPROTO& ipv) {
   bool result = false;
   do {
    if (!in_addr || !address)
     break;
    std::string ip;
    u_short port = 0;
-   if (!parser_ipaddr((const sockaddr_storage*)in_addr, ip, port, IPPROTO::IPPROTO_IPV4))
+   if (!parser_ipaddr((const sockaddr_storage*)in_addr, ip, port, ipv))
     break;
    sprintf(address, "%s:%d", ip.c_str(), port);
    result = true;
@@ -98,9 +155,10 @@ namespace local {
   out_port = 0;
   if (!in_addr)
    return result;
-  int inet = (IPPROTO::IPPROTO_IPV6 == ipv) ? AF_INET6 : AF_INET;
+
+  //int inet = (IPPROTO::IPPROTO_IPV6 == ipv) ? AF_INET6 : AF_INET;
   char ipv6[64] = { 0 };
-  switch (inet) {
+  switch (in_addr->ss_family) {
   case AF_INET6: {
    struct sockaddr_in6* addr6 = (struct sockaddr_in6*)in_addr;
    //低版本windows可能找不到inet_ntop函数。
@@ -137,10 +195,10 @@ namespace local {
  bool Protocol::parser_ipaddr(const std::string& address, std::string& ip, u_short& port) {
   bool result = false;
   do {
-   auto check = address.find(":");
+   auto check = address.find("/");
    if (check == std::string::npos)
     break;
-   std::vector<std::string> parser = shared::Win::StringSpiltA(address, ":");
+   std::vector<std::string> parser = shared::Win::StringSpiltA(address, "/");
    if (parser.size() != 2)
     break;
    ip = parser[0];
@@ -151,7 +209,7 @@ namespace local {
   } while (0);
   return result;
  }
-
+#endif
 
 
  ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -246,6 +304,9 @@ namespace local {
   header_logo = 0xFAC9C2D0;
   footer_logo = 0xB4B4AAC1;
   command_code = static_cast<decltype(command_code)>(input_cmd);
+ }
+ tagPacketHeader::~tagPacketHeader() {
+
  }
  bool tagPacketHeader::Verify() const {
   return header_logo == 0xFAC9C2D0 && footer_logo == 0xB4B4AAC1;

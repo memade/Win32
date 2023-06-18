@@ -90,915 +90,27 @@ namespace ImGui {
 
  using tfRenderCb = std::function<void(void)>;
  using tfImguiErrorCb = std::function<void(const int&, const char*)>;
+
  class ImguiBase {
  public:
-  ImguiBase() {
+  ImguiBase(const HWND& parent = nullptr)
+   :m_hParent(parent) {
   }
   ~ImguiBase() {
   }
+  void Release() const { delete this; }
  public:
   bool Start() {
    do {
     if (m_IsOpen.load())
      break;
-#if IMGUI_WIN32_DIRECTX9
-    // Create application window
- //ImGui_ImplWin32_EnableDpiAwareness();
-    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, L"ImGui Example", NULL };
-    ::RegisterClassExW(&wc);
-    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Dear ImGui DirectX9 Example", WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, NULL, NULL, wc.hInstance, this);
-    // Initialize Direct3D
-    if (!CreateDeviceD3D(hwnd))
-    {
-     CleanupDeviceD3D();
-     ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
-     return 1;
+    m_hWaitForMainWndCreate = ::CreateEventW(NULL, TRUE, FALSE, NULL);
+    m_hMainThread = reinterpret_cast<HANDLE>(::_beginthreadex(nullptr, 0, MainProcess, this, 0, nullptr));
+    if (m_hWaitForMainWndCreate) {
+     ::WaitForSingleObject(m_hWaitForMainWndCreate, INFINITE);
+     ::CloseHandle(m_hWaitForMainWndCreate);
+     m_hWaitForMainWndCreate = nullptr;
     }
-
-    // Show the window
-    ::ShowWindow(hwnd, SW_SHOWDEFAULT);
-    ::UpdateWindow(hwnd);
-
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
-
-    // Setup Platform/Renderer backends
-    ImGui_ImplWin32_Init(hwnd);
-    ImGui_ImplDX9_Init(m_pd3dDevice);
-
-    // Load Fonts
-    // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
-    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
-    // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
-    // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-    // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use Freetype for higher quality font rendering.
-    // - Read 'docs/FONTS.md' for more instructions and details.
-    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-    //io.Fonts->AddFontDefault();
-    //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
-    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
-    //IM_ASSERT(font != NULL);
-
-    // Our state
-    bool show_demo_window = true;
-    bool show_another_window = false;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
-    // Main loop
-    bool done = false;
-    while (!done)
-    {
-     // Poll and handle messages (inputs, window resize, etc.)
-     // See the WndProc() function below for our to dispatch events to the Win32 backend.
-     MSG msg;
-     while (::PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE))
-     {
-      ::TranslateMessage(&msg);
-      ::DispatchMessage(&msg);
-      if (msg.message == WM_QUIT)
-       done = true;
-     }
-     if (done)
-      break;
-
-     // Start the Dear ImGui frame
-     ImGui_ImplDX9_NewFrame();
-     ImGui_ImplWin32_NewFrame();
-     ImGui::NewFrame();
-
-     // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-     if (show_demo_window)
-      ImGui::ShowDemoWindow(&show_demo_window);
-
-     // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
-     {
-      static float f = 0.0f;
-      static int counter = 0;
-
-      ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-      ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-      ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-      ImGui::Checkbox("Another Window", &show_another_window);
-
-      ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-      ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-      if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-       counter++;
-      ImGui::SameLine();
-      ImGui::Text("counter = %d", counter);
-
-      ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-      ImGui::End();
-     }
-
-     // 3. Show another simple window.
-     if (show_another_window)
-     {
-      ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-      ImGui::Text("Hello from another window!");
-      if (ImGui::Button("Close Me"))
-       show_another_window = false;
-      ImGui::End();
-     }
-
-     // Rendering
-     ImGui::EndFrame();
-     m_pd3dDevice->SetRenderState(D3DRS_ZENABLE, FALSE);
-     m_pd3dDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
-     m_pd3dDevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
-     D3DCOLOR clear_col_dx = D3DCOLOR_RGBA((int)(clear_color.x * clear_color.w * 255.0f), (int)(clear_color.y * clear_color.w * 255.0f), (int)(clear_color.z * clear_color.w * 255.0f), (int)(clear_color.w * 255.0f));
-     m_pd3dDevice->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, clear_col_dx, 1.0f, 0);
-     if (m_pd3dDevice->BeginScene() >= 0)
-     {
-      ImGui::Render();
-      ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
-      m_pd3dDevice->EndScene();
-     }
-     HRESULT result = m_pd3dDevice->Present(NULL, NULL, NULL, NULL);
-
-     // Handle loss of D3D9 device
-     if (result == D3DERR_DEVICELOST && m_pd3dDevice->TestCooperativeLevel() == D3DERR_DEVICENOTRESET)
-      ResetDevice();
-    }
-
-    ImGui_ImplDX9_Shutdown();
-    ImGui_ImplWin32_Shutdown();
-    ImGui::DestroyContext();
-
-    CleanupDeviceD3D();
-    ::DestroyWindow(hwnd);
-    ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
-#elif IMGUI_WIN32_DIRECTX10
-    // Create application window
-     //ImGui_ImplWin32_EnableDpiAwareness();
-    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, L"ImGui Example", NULL };
-    ::RegisterClassExW(&wc);
-    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Dear ImGui DirectX10 Example", WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, NULL, NULL, wc.hInstance, NULL);
-
-    // Initialize Direct3D
-    if (!CreateDeviceD3D(hwnd))
-    {
-     CleanupDeviceD3D();
-     ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
-     return 1;
-    }
-
-    // Show the window
-    ::ShowWindow(hwnd, SW_SHOWDEFAULT);
-    ::UpdateWindow(hwnd);
-
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
-
-    // Setup Platform/Renderer backends
-    ImGui_ImplWin32_Init(hwnd);
-    ImGui_ImplDX10_Init(m_pd3dDevice);
-
-    // Load Fonts
-    // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
-    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
-    // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
-    // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-    // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use Freetype for higher quality font rendering.
-    // - Read 'docs/FONTS.md' for more instructions and details.
-    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-    //io.Fonts->AddFontDefault();
-    //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
-    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
-    //IM_ASSERT(font != NULL);
-
-    // Our state
-    bool show_demo_window = true;
-    bool show_another_window = false;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
-    // Main loop
-    bool done = false;
-    while (!done)
-    {
-     // Poll and handle messages (inputs, window resize, etc.)
-     // See the WndProc() function below for our to dispatch events to the Win32 backend.
-     MSG msg;
-     while (::PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE))
-     {
-      ::TranslateMessage(&msg);
-      ::DispatchMessage(&msg);
-      if (msg.message == WM_QUIT)
-       done = true;
-     }
-     if (done)
-      break;
-
-     // Start the Dear ImGui frame
-     ImGui_ImplDX10_NewFrame();
-     ImGui_ImplWin32_NewFrame();
-     ImGui::NewFrame();
-
-     // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-     if (show_demo_window)
-      ImGui::ShowDemoWindow(&show_demo_window);
-
-     // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
-     {
-      static float f = 0.0f;
-      static int counter = 0;
-
-      ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-      ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-      ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-      ImGui::Checkbox("Another Window", &show_another_window);
-
-      ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-      ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-      if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-       counter++;
-      ImGui::SameLine();
-      ImGui::Text("counter = %d", counter);
-
-      ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-      ImGui::End();
-     }
-
-     // 3. Show another simple window.
-     if (show_another_window)
-     {
-      ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-      ImGui::Text("Hello from another window!");
-      if (ImGui::Button("Close Me"))
-       show_another_window = false;
-      ImGui::End();
-     }
-
-     // Rendering
-     ImGui::Render();
-     const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
-     m_pd3dDevice->OMSetRenderTargets(1, &m_mainRenderTargetView, NULL);
-     m_pd3dDevice->ClearRenderTargetView(m_mainRenderTargetView, clear_color_with_alpha);
-     ImGui_ImplDX10_RenderDrawData(ImGui::GetDrawData());
-
-     m_pSwapChain->Present(1, 0); // Present with vsync
-     //g_pSwapChain->Present(0, 0); // Present without vsync
-    }
-
-    ImGui_ImplDX10_Shutdown();
-    ImGui_ImplWin32_Shutdown();
-    ImGui::DestroyContext();
-
-    CleanupDeviceD3D();
-    ::DestroyWindow(hwnd);
-    ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
-#elif IMGUI_WIN32_DIRECTX11
-    // Create application window
-     //ImGui_ImplWin32_EnableDpiAwareness();
-    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, L"ImGui Example", NULL };
-    ::RegisterClassExW(&wc);
-    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Dear ImGui DirectX11 Example", WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, NULL, NULL, wc.hInstance, NULL);
-
-    // Initialize Direct3D
-    if (!CreateDeviceD3D(hwnd))
-    {
-     CleanupDeviceD3D();
-     ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
-     return 1;
-    }
-
-    // Show the window
-    ::ShowWindow(hwnd, SW_SHOWDEFAULT);
-    ::UpdateWindow(hwnd);
-
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
-
-    // Setup Platform/Renderer backends
-    ImGui_ImplWin32_Init(hwnd);
-    ImGui_ImplDX11_Init(m_pd3dDevice, m_pd3dDeviceContext);
-
-    // Load Fonts
-    // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
-    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
-    // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
-    // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-    // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use Freetype for higher quality font rendering.
-    // - Read 'docs/FONTS.md' for more instructions and details.
-    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-    //io.Fonts->AddFontDefault();
-    //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
-    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
-    //IM_ASSERT(font != NULL);
-
-    // Our state
-    bool show_demo_window = true;
-    bool show_another_window = false;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
-    // Main loop
-    bool done = false;
-    while (!done)
-    {
-     // Poll and handle messages (inputs, window resize, etc.)
-     // See the WndProc() function below for our to dispatch events to the Win32 backend.
-     MSG msg;
-     while (::PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE))
-     {
-      ::TranslateMessage(&msg);
-      ::DispatchMessage(&msg);
-      if (msg.message == WM_QUIT)
-       done = true;
-     }
-     if (done)
-      break;
-
-     // Start the Dear ImGui frame
-     ImGui_ImplDX11_NewFrame();
-     ImGui_ImplWin32_NewFrame();
-     ImGui::NewFrame();
-
-     // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-     if (show_demo_window)
-      ImGui::ShowDemoWindow(&show_demo_window);
-
-     // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
-     {
-      static float f = 0.0f;
-      static int counter = 0;
-
-      ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-      ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-      ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-      ImGui::Checkbox("Another Window", &show_another_window);
-
-      ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-      ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-      if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-       counter++;
-      ImGui::SameLine();
-      ImGui::Text("counter = %d", counter);
-
-      ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-      ImGui::End();
-     }
-
-     // 3. Show another simple window.
-     if (show_another_window)
-     {
-      ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-      ImGui::Text("Hello from another window!");
-      if (ImGui::Button("Close Me"))
-       show_another_window = false;
-      ImGui::End();
-     }
-
-     // Rendering
-     ImGui::Render();
-     const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
-     m_pd3dDeviceContext->OMSetRenderTargets(1, &m_mainRenderTargetView, NULL);
-     m_pd3dDeviceContext->ClearRenderTargetView(m_mainRenderTargetView, clear_color_with_alpha);
-     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-
-     m_pSwapChain->Present(1, 0); // Present with vsync
-     //g_pSwapChain->Present(0, 0); // Present without vsync
-    }
-
-    // Cleanup
-    ImGui_ImplDX11_Shutdown();
-    ImGui_ImplWin32_Shutdown();
-    ImGui::DestroyContext();
-
-    CleanupDeviceD3D();
-    ::DestroyWindow(hwnd);
-    ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
-#elif IMGUI_WIN32_DIRECTX12
-    // Create application window
-    //ImGui_ImplWin32_EnableDpiAwareness();
-    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, ::GetModuleHandleW(NULL), NULL, NULL, NULL, NULL, L"ImGui Example", NULL };
-    ::RegisterClassExW(&wc);
-    HWND hwnd = ::CreateWindowW(
-     wc.lpszClassName, L"Dear ImGui DirectX12 Example", WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, NULL, NULL, wc.hInstance, this);
-
-    // Initialize Direct3D
-    if (!CreateDeviceD3D(hwnd))
-    {
-     CleanupDeviceD3D();
-     ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
-     return 1;
-    }
-
-    // Show the window
-    ::ShowWindow(hwnd, SW_SHOWDEFAULT);
-    ::UpdateWindow(hwnd);
-
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
-
-    // Setup Platform/Renderer backends
-    ImGui_ImplWin32_Init(hwnd);
-    ImGui_ImplDX12_Init(m_pD3D12Device, NUM_FRAMES_IN_FLIGHT,
-     DXGI_FORMAT_R8G8B8A8_UNORM, m_pD3DSrvDescHeap,
-     m_pD3DSrvDescHeap->GetCPUDescriptorHandleForHeapStart(),
-     m_pD3DSrvDescHeap->GetGPUDescriptorHandleForHeapStart());
-
-    // Load Fonts
-    // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
-    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
-    // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
-    // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-    // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use Freetype for higher quality font rendering.
-    // - Read 'docs/FONTS.md' for more instructions and details.
-    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-    //io.Fonts->AddFontDefault();
-    //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
-    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
-    //IM_ASSERT(font != NULL);
-
-    // Our state
-    bool show_demo_window = true;
-    bool show_another_window = false;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-    // Main loop
-    bool done = false;
-    while (!done)
-    {
-     // Poll and handle messages (inputs, window resize, etc.)
-     // See the WndProc() function below for our to dispatch events to the Win32 backend.
-     MSG msg;
-     while (::PeekMessageW(&msg, NULL, 0U, 0U, PM_REMOVE))
-     {
-      ::TranslateMessage(&msg);
-      ::DispatchMessage(&msg);
-      if (msg.message == WM_QUIT)
-       done = true;
-     }
-     if (done)
-      break;
-
-     // Start the Dear ImGui frame
-     ImGui_ImplDX12_NewFrame();
-     ImGui_ImplWin32_NewFrame();
-     ImGui::NewFrame();
-
-     // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-     if (show_demo_window)
-      ImGui::ShowDemoWindow(&show_demo_window);
-
-     // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
-     {
-      static float f = 0.0f;
-      static int counter = 0;
-
-      ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-      ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-      ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-      ImGui::Checkbox("Another Window", &show_another_window);
-
-      ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-      ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-      if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-       counter++;
-      ImGui::SameLine();
-      ImGui::Text("counter = %d", counter);
-
-      ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-      ImGui::End();
-     }
-
-     // 3. Show another simple window.
-     if (show_another_window)
-     {
-      ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-      ImGui::Text("Hello from another window!");
-      if (ImGui::Button("Close Me"))
-       show_another_window = false;
-      ImGui::End();
-     }
-     // Rendering
-     ImGui::Render();
-     FrameContext* frameCtx = WaitForNextFrameResources();
-     UINT backBufferIdx = m_pSwapChain->GetCurrentBackBufferIndex();
-     frameCtx->CommandAllocator->Reset();
-     D3D12_RESOURCE_BARRIER barrier = {};
-     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-     barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-     barrier.Transition.pResource = m_pMainRenderTargetResources[backBufferIdx];
-     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-     barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-     m_pD3DCommandList->Reset(frameCtx->CommandAllocator, NULL);
-     m_pD3DCommandList->ResourceBarrier(1, &barrier);
-     // Render Dear ImGui graphics
-     const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
-     m_pD3DCommandList->ClearRenderTargetView(m_pMainRenderTargetDescriptors[backBufferIdx], clear_color_with_alpha, 0, NULL);
-     m_pD3DCommandList->OMSetRenderTargets(1, &m_pMainRenderTargetDescriptors[backBufferIdx], FALSE, NULL);
-     m_pD3DCommandList->SetDescriptorHeaps(1, &m_pD3DSrvDescHeap);
-     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_pD3DCommandList);
-     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-     barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-     m_pD3DCommandList->ResourceBarrier(1, &barrier);
-     m_pD3DCommandList->Close();
-     m_pD3DCommandQueue->ExecuteCommandLists(1, (ID3D12CommandList* const*)&m_pD3DCommandList);
-     m_pSwapChain->Present(1, 0); // Present with vsync
-     //g_pSwapChain->Present(0, 0); // Present without vsync
-     UINT64 fenceValue = m_nFenceLastSignaledValue + 1;
-     m_pD3DCommandQueue->Signal(m_pFence, fenceValue);
-     m_nFenceLastSignaledValue = fenceValue;
-     frameCtx->FenceValue = fenceValue;
-    }
-    WaitForLastSubmittedFrame();
-    // Cleanup
-    ImGui_ImplDX12_Shutdown();
-    ImGui_ImplWin32_Shutdown();
-    ImGui::DestroyContext();
-    CleanupDeviceD3D();
-    ::DestroyWindow(hwnd);
-    ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
-#elif IMGUI_GLFW_OPENGL2
-    glfwSetErrorCallback([](int, const char*) {});
-    if (!glfwInit())
-     return 1;
-
-    // Create window with graphics context
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL2 example", NULL, NULL);
-    if (window == NULL)
-     return 1;
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // Enable vsync
-
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
-
-    // Setup Platform/Renderer backends
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL2_Init();
-
-    // Load Fonts
-    // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
-    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
-    // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
-    // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-    // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use Freetype for higher quality font rendering.
-    // - Read 'docs/FONTS.md' for more instructions and details.
-    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-    //io.Fonts->AddFontDefault();
-    //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
-    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
-    //IM_ASSERT(font != NULL);
-
-    // Our state
-    bool show_demo_window = true;
-    bool show_another_window = false;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
-    // Main loop
-    while (!glfwWindowShouldClose(window))
-    {
-     // Poll and handle events (inputs, window resize, etc.)
-     // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
-     // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite your copy of the mouse data.
-     // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or clear/overwrite your copy of the keyboard data.
-     // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
-     glfwPollEvents();
-
-     // Start the Dear ImGui frame
-     ImGui_ImplOpenGL2_NewFrame();
-     ImGui_ImplGlfw_NewFrame();
-     ImGui::NewFrame();
-
-     // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-     if (show_demo_window)
-      ImGui::ShowDemoWindow(&show_demo_window);
-
-     // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
-     {
-      static float f = 0.0f;
-      static int counter = 0;
-
-      ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-      ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-      ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-      ImGui::Checkbox("Another Window", &show_another_window);
-
-      ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-      ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-      if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-       counter++;
-      ImGui::SameLine();
-      ImGui::Text("counter = %d", counter);
-
-      ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-      ImGui::End();
-     }
-
-     // 3. Show another simple window.
-     if (show_another_window)
-     {
-      ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-      ImGui::Text("Hello from another window!");
-      if (ImGui::Button("Close Me"))
-       show_another_window = false;
-      ImGui::End();
-     }
-
-     // Rendering
-     ImGui::Render();
-     int display_w, display_h;
-     glfwGetFramebufferSize(window, &display_w, &display_h);
-     glViewport(0, 0, display_w, display_h);
-     glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
-     glClear(GL_COLOR_BUFFER_BIT);
-
-     // If you are using this code with non-legacy OpenGL header/contexts (which you should not, prefer using imgui_impl_opengl3.cpp!!),
-     // you may need to backup/reset/restore other state, e.g. for current shader using the commented lines below.
-     //GLint last_program;
-     //glGetIntegerv(GL_CURRENT_PROGRAM, &last_program);
-     //glUseProgram(0);
-     ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
-     //glUseProgram(last_program);
-
-     glfwMakeContextCurrent(window);
-     glfwSwapBuffers(window);
-    }
-
-    // Cleanup
-    ImGui_ImplOpenGL2_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
-
-    glfwDestroyWindow(window);
-    glfwTerminate();
-#elif IMGUI_GLFW_OPENGL3
-    glfwSetErrorCallback([](int, const char*) {});
-    if (!glfwInit())
-     return 1;
-
-    // GL 3.0 + GLSL 130
-    const char* glsl_version = "#version 130";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
-    //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
-
-    // Create window with graphics context
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
-    if (window == NULL)
-     return 1;
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // Enable vsync
-
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
-    // Setup Platform/Renderer backends
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init(glsl_version);
-    // Load Fonts
-    // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
-    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
-    // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
-    // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-    // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use Freetype for higher quality font rendering.
-    // - Read 'docs/FONTS.md' for more instructions and details.
-    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-    // - Our Emscripten build process allows embedding fonts to be accessible at runtime from the "fonts/" folder. See Makefile.emscripten for details.
-    //io.Fonts->AddFontDefault();
-    //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
-    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
-    //IM_ASSERT(font != NULL);
-
-    // Our state
-    bool show_demo_window = true;
-    bool show_another_window = false;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-    // Main loop
-#ifdef __EMSCRIPTEN__
-    // For an Emscripten build we are disabling file-system access, so let's not attempt to do a fopen() of the imgui.ini file.
-    // You may manually call LoadIniSettingsFromMemory() to load settings from your own storage.
-    io.IniFilename = NULL;
-    EMSCRIPTEN_MAINLOOP_BEGIN
-#else
-    while (!glfwWindowShouldClose(window))
-#endif
-    {
-     // Poll and handle events (inputs, window resize, etc.)
-     // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
-     // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite your copy of the mouse data.
-     // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or clear/overwrite your copy of the keyboard data.
-     // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
-     glfwPollEvents();
-
-     // Start the Dear ImGui frame
-     ImGui_ImplOpenGL3_NewFrame();
-     ImGui_ImplGlfw_NewFrame();
-     ImGui::NewFrame();
-
-     // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-     if (show_demo_window)
-      ImGui::ShowDemoWindow(&show_demo_window);
-
-     // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
-     {
-      static float f = 0.0f;
-      static int counter = 0;
-
-      ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-      ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-      ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-      ImGui::Checkbox("Another Window", &show_another_window);
-
-      ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-      ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-      if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-       counter++;
-      ImGui::SameLine();
-      ImGui::Text("counter = %d", counter);
-
-      ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-      ImGui::End();
-     }
-
-     // 3. Show another simple window.
-     if (show_another_window)
-     {
-      ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-      ImGui::Text("Hello from another window!");
-      if (ImGui::Button("Close Me"))
-       show_another_window = false;
-      ImGui::End();
-     }
-
-     // Rendering
-     ImGui::Render();
-     int display_w, display_h;
-     glfwGetFramebufferSize(window, &display_w, &display_h);
-     glViewport(0, 0, display_w, display_h);
-     glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
-     glClear(GL_COLOR_BUFFER_BIT);
-     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-     glfwSwapBuffers(window);
-    }
-#ifdef __EMSCRIPTEN__
-    EMSCRIPTEN_MAINLOOP_END;
-#endif
-
-    // Cleanup
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
-    glfwDestroyWindow(window);
-    glfwTerminate();
-#elif IMGUI_GLUT_OPENGL2
-    // Create GLUT window
-    glutInit(&__argc, __argv);
-    glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);
-    glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_MULTISAMPLE);
-    glutInitWindowSize(m_WindowSize.cx, m_WindowSize.cy);
-    if (1 != glutCreateWindow("Dear ImGui GLUT+OpenGL2 Example"))
-     break;
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    m_pImGuiIO = &GetIO();
-    if (!m_pImGuiIO)
-     break;
-    m_pImGuiIO->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
-    // Setup Platform/Renderer backends
-    // FIXME: Consider reworking this example to install our own GLUT funcs + forward calls ImGui_ImplGLUT_XXX ones, instead of using ImGui_ImplGLUT_InstallFuncs().
-    ImGui_ImplGLUT_Init();
-    ImGui_ImplOpenGL2_Init();
-    ImGui_ImplGLUT_InstallFuncs();
-
-    glutDisplayFunc(
-     []() {
-      ImGui_ImplOpenGL2_NewFrame();
-      ImGui_ImplGLUT_NewFrame();
-      if (show_demo_window)
-       ImGui::ShowDemoWindow(&show_demo_window);
-      {
-       static float f = 0.0f;
-       static int counter = 0;
-       ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-       ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-       ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-       ImGui::Checkbox("Another Window", &show_another_window);
-       ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-       ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-       if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-        counter++;
-       ImGui::SameLine();
-       ImGui::Text("counter = %d", counter);
-       ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / GetIO().Framerate, GetIO().Framerate);
-       ImGui::End();
-      }
-      if (show_another_window) {
-       ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-       ImGui::Text("Hello from another window!");
-       if (ImGui::Button("Close Me"))
-        show_another_window = false;
-       ImGui::End();
-      }
-      // Rendering
-      ImGui::Render();
-      ImGuiIO& io = ImGui::GetIO();
-      glViewport(0, 0, (GLsizei)io.DisplaySize.x, (GLsizei)io.DisplaySize.y);
-      glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
-      glClear(GL_COLOR_BUFFER_BIT);
-      //glUseProgram(0); // You may want this if using this code in an OpenGL 3+ context where shaders may be bound, but prefer using the GL3+ code.
-      ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
-      glutSwapBuffers();
-      glutPostRedisplay();
-     });
-
-    glutMainLoop();
-
-    m_RenderThread = std::thread(
-     [&]() {
-      do {
-       if (!m_IsOpen.load())
-        break;
-      } while (0);
-     });
-#endif
-
-
-
     m_IsOpen.store(true);
    } while (0);
    return m_IsOpen.load();
@@ -1008,6 +120,15 @@ namespace ImGui {
     if (!m_IsOpen.load())
      break;
     m_IsOpen.store(false);
+    ::SendMessageW(m_hWnd, WM_CLOSE, NULL, NULL);
+    if (m_hMainThread) {
+     ::WaitForSingleObject(m_hMainThread, INFINITE);
+     ::CloseHandle(m_hMainThread);
+     m_hMainThread = nullptr;
+    }
+
+
+
 #if IMGUI_WIN32_DIRECTX9
 
 #elif IMGUI_WIN32_DIRECTX10
@@ -1027,6 +148,12 @@ namespace ImGui {
 
 #endif
    } while (0);
+  }
+  const HANDLE& MainHandle() const {
+   return m_hMainThread;
+  }
+  const HWND& Hwnd() const {
+   return m_hWnd;
   }
   void RegisterRenderCb(const tfRenderCb& render_cb) {
    m_RenderCb = render_cb;
@@ -1051,7 +178,12 @@ namespace ImGui {
 #endif
   inline static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #endif
+  inline static unsigned int __stdcall MainProcess(void*);
  protected:
+  HANDLE m_hMainThread = nullptr;
+  HANDLE m_hWaitForMainWndCreate = nullptr;
+  HWND m_hWnd = nullptr;
+  const HWND m_hParent;
   SIZE m_WindowSize = { 1280,768 };
   ImGuiIO* m_pImGuiIO = nullptr;
   std::atomic_bool m_Ready = false;
@@ -1461,8 +593,8 @@ namespace ImGui {
    _pThis->CleanupRenderTarget();
    HRESULT result = _pThis->m_pSwapChain->ResizeBuffers(
     0,
-    (UINT)LOWORD(lParam), 
-    (UINT)HIWORD(lParam), 
+    (UINT)LOWORD(lParam),
+    (UINT)HIWORD(lParam),
     DXGI_FORMAT_UNKNOWN,
     DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT);
    if (!SUCCEEDED(result))
@@ -1487,6 +619,918 @@ namespace ImGui {
  }
 #endif
 
+
+ inline unsigned int __stdcall ImguiBase::MainProcess(void* arg) {
+  ImguiBase* _This = reinterpret_cast<ImguiBase*>(arg);
+  if (!_This)
+   return -1;
+#if IMGUI_WIN32_DIRECTX9
+  // Create application window
+//ImGui_ImplWin32_EnableDpiAwareness();
+  WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, L"ImGui Example", NULL };
+  ::RegisterClassExW(&wc);
+  m_hWnd = ::CreateWindowW(wc.lpszClassName, L"Dear ImGui DirectX9 Example", WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, NULL, NULL, wc.hInstance, this);
+  // Initialize Direct3D
+  if (!CreateDeviceD3D(hwnd))
+  {
+   CleanupDeviceD3D();
+   ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+   return 1;
+  }
+
+  // Show the window
+  ::ShowWindow(hwnd, SW_SHOWDEFAULT);
+  ::UpdateWindow(hwnd);
+
+  // Setup Dear ImGui context
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImGuiIO& io = ImGui::GetIO(); (void)io;
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+  // Setup Dear ImGui style
+  ImGui::StyleColorsDark();
+  //ImGui::StyleColorsLight();
+
+  // Setup Platform/Renderer backends
+  ImGui_ImplWin32_Init(hwnd);
+  ImGui_ImplDX9_Init(m_pd3dDevice);
+
+  // Load Fonts
+  // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
+  // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
+  // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
+  // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
+  // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use Freetype for higher quality font rendering.
+  // - Read 'docs/FONTS.md' for more instructions and details.
+  // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
+  //io.Fonts->AddFontDefault();
+  //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
+  //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
+  //IM_ASSERT(font != NULL);
+
+  // Our state
+  bool show_demo_window = true;
+  bool show_another_window = false;
+  ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+  // Main loop
+  bool done = false;
+  while (!done)
+  {
+   // Poll and handle messages (inputs, window resize, etc.)
+   // See the WndProc() function below for our to dispatch events to the Win32 backend.
+   MSG msg;
+   while (::PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE))
+   {
+    ::TranslateMessage(&msg);
+    ::DispatchMessage(&msg);
+    if (msg.message == WM_QUIT)
+     done = true;
+   }
+   if (done)
+    break;
+
+   // Start the Dear ImGui frame
+   ImGui_ImplDX9_NewFrame();
+   ImGui_ImplWin32_NewFrame();
+   ImGui::NewFrame();
+
+   // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+   if (show_demo_window)
+    ImGui::ShowDemoWindow(&show_demo_window);
+
+   // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
+   {
+    static float f = 0.0f;
+    static int counter = 0;
+
+    ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+
+    ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+    ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+    ImGui::Checkbox("Another Window", &show_another_window);
+
+    ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+    ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+
+    if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+     counter++;
+    ImGui::SameLine();
+    ImGui::Text("counter = %d", counter);
+
+    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+    ImGui::End();
+   }
+
+   // 3. Show another simple window.
+   if (show_another_window)
+   {
+    ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+    ImGui::Text("Hello from another window!");
+    if (ImGui::Button("Close Me"))
+     show_another_window = false;
+    ImGui::End();
+   }
+
+   // Rendering
+   ImGui::EndFrame();
+   m_pd3dDevice->SetRenderState(D3DRS_ZENABLE, FALSE);
+   m_pd3dDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+   m_pd3dDevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
+   D3DCOLOR clear_col_dx = D3DCOLOR_RGBA((int)(clear_color.x * clear_color.w * 255.0f), (int)(clear_color.y * clear_color.w * 255.0f), (int)(clear_color.z * clear_color.w * 255.0f), (int)(clear_color.w * 255.0f));
+   m_pd3dDevice->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, clear_col_dx, 1.0f, 0);
+   if (m_pd3dDevice->BeginScene() >= 0)
+   {
+    ImGui::Render();
+    ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
+    m_pd3dDevice->EndScene();
+   }
+   HRESULT result = m_pd3dDevice->Present(NULL, NULL, NULL, NULL);
+
+   // Handle loss of D3D9 device
+   if (result == D3DERR_DEVICELOST && m_pd3dDevice->TestCooperativeLevel() == D3DERR_DEVICENOTRESET)
+    ResetDevice();
+  }
+
+  ImGui_ImplDX9_Shutdown();
+  ImGui_ImplWin32_Shutdown();
+  ImGui::DestroyContext();
+
+  CleanupDeviceD3D();
+  ::DestroyWindow(hwnd);
+  ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+#elif IMGUI_WIN32_DIRECTX10
+  // Create application window
+   //ImGui_ImplWin32_EnableDpiAwareness();
+  WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, L"ImGui Example", NULL };
+  ::RegisterClassExW(&wc);
+  m_hWnd = ::CreateWindowW(wc.lpszClassName, L"Dear ImGui DirectX10 Example", WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, NULL, NULL, wc.hInstance, NULL);
+
+  // Initialize Direct3D
+  if (!CreateDeviceD3D(hwnd))
+  {
+   CleanupDeviceD3D();
+   ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+   return 1;
+  }
+
+  // Show the window
+  ::ShowWindow(hwnd, SW_SHOWDEFAULT);
+  ::UpdateWindow(hwnd);
+
+  // Setup Dear ImGui context
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImGuiIO& io = ImGui::GetIO(); (void)io;
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+  // Setup Dear ImGui style
+  ImGui::StyleColorsDark();
+  //ImGui::StyleColorsLight();
+
+  // Setup Platform/Renderer backends
+  ImGui_ImplWin32_Init(hwnd);
+  ImGui_ImplDX10_Init(m_pd3dDevice);
+
+  // Load Fonts
+  // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
+  // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
+  // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
+  // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
+  // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use Freetype for higher quality font rendering.
+  // - Read 'docs/FONTS.md' for more instructions and details.
+  // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
+  //io.Fonts->AddFontDefault();
+  //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
+  //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
+  //IM_ASSERT(font != NULL);
+
+  // Our state
+  bool show_demo_window = true;
+  bool show_another_window = false;
+  ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+  // Main loop
+  bool done = false;
+  while (!done)
+  {
+   // Poll and handle messages (inputs, window resize, etc.)
+   // See the WndProc() function below for our to dispatch events to the Win32 backend.
+   MSG msg;
+   while (::PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE))
+   {
+    ::TranslateMessage(&msg);
+    ::DispatchMessage(&msg);
+    if (msg.message == WM_QUIT)
+     done = true;
+   }
+   if (done)
+    break;
+
+   // Start the Dear ImGui frame
+   ImGui_ImplDX10_NewFrame();
+   ImGui_ImplWin32_NewFrame();
+   ImGui::NewFrame();
+
+   // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+   if (show_demo_window)
+    ImGui::ShowDemoWindow(&show_demo_window);
+
+   // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
+   {
+    static float f = 0.0f;
+    static int counter = 0;
+
+    ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+
+    ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+    ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+    ImGui::Checkbox("Another Window", &show_another_window);
+
+    ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+    ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+
+    if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+     counter++;
+    ImGui::SameLine();
+    ImGui::Text("counter = %d", counter);
+
+    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+    ImGui::End();
+   }
+
+   // 3. Show another simple window.
+   if (show_another_window)
+   {
+    ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+    ImGui::Text("Hello from another window!");
+    if (ImGui::Button("Close Me"))
+     show_another_window = false;
+    ImGui::End();
+   }
+
+   // Rendering
+   ImGui::Render();
+   const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
+   m_pd3dDevice->OMSetRenderTargets(1, &m_mainRenderTargetView, NULL);
+   m_pd3dDevice->ClearRenderTargetView(m_mainRenderTargetView, clear_color_with_alpha);
+   ImGui_ImplDX10_RenderDrawData(ImGui::GetDrawData());
+
+   m_pSwapChain->Present(1, 0); // Present with vsync
+   //g_pSwapChain->Present(0, 0); // Present without vsync
+  }
+
+  ImGui_ImplDX10_Shutdown();
+  ImGui_ImplWin32_Shutdown();
+  ImGui::DestroyContext();
+
+  CleanupDeviceD3D();
+  ::DestroyWindow(hwnd);
+  ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+#elif IMGUI_WIN32_DIRECTX11
+  // Create application window
+   //ImGui_ImplWin32_EnableDpiAwareness();
+  WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, L"ImGui Example", NULL };
+  ::RegisterClassExW(&wc);
+  m_hWnd = ::CreateWindowW(wc.lpszClassName, L"Dear ImGui DirectX11 Example", WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, NULL, NULL, wc.hInstance, NULL);
+
+  // Initialize Direct3D
+  if (!CreateDeviceD3D(hwnd))
+  {
+   CleanupDeviceD3D();
+   ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+   return 1;
+  }
+
+  // Show the window
+  ::ShowWindow(hwnd, SW_SHOWDEFAULT);
+  ::UpdateWindow(hwnd);
+
+  // Setup Dear ImGui context
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImGuiIO& io = ImGui::GetIO(); (void)io;
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+  // Setup Dear ImGui style
+  ImGui::StyleColorsDark();
+  //ImGui::StyleColorsLight();
+
+  // Setup Platform/Renderer backends
+  ImGui_ImplWin32_Init(hwnd);
+  ImGui_ImplDX11_Init(m_pd3dDevice, m_pd3dDeviceContext);
+
+  // Load Fonts
+  // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
+  // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
+  // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
+  // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
+  // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use Freetype for higher quality font rendering.
+  // - Read 'docs/FONTS.md' for more instructions and details.
+  // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
+  //io.Fonts->AddFontDefault();
+  //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
+  //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
+  //IM_ASSERT(font != NULL);
+
+  // Our state
+  bool show_demo_window = true;
+  bool show_another_window = false;
+  ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+  // Main loop
+  bool done = false;
+  while (!done)
+  {
+   // Poll and handle messages (inputs, window resize, etc.)
+   // See the WndProc() function below for our to dispatch events to the Win32 backend.
+   MSG msg;
+   while (::PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE))
+   {
+    ::TranslateMessage(&msg);
+    ::DispatchMessage(&msg);
+    if (msg.message == WM_QUIT)
+     done = true;
+   }
+   if (done)
+    break;
+
+   // Start the Dear ImGui frame
+   ImGui_ImplDX11_NewFrame();
+   ImGui_ImplWin32_NewFrame();
+   ImGui::NewFrame();
+
+   // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+   if (show_demo_window)
+    ImGui::ShowDemoWindow(&show_demo_window);
+
+   // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
+   {
+    static float f = 0.0f;
+    static int counter = 0;
+
+    ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+
+    ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+    ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+    ImGui::Checkbox("Another Window", &show_another_window);
+
+    ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+    ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+
+    if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+     counter++;
+    ImGui::SameLine();
+    ImGui::Text("counter = %d", counter);
+
+    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+    ImGui::End();
+   }
+
+   // 3. Show another simple window.
+   if (show_another_window)
+   {
+    ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+    ImGui::Text("Hello from another window!");
+    if (ImGui::Button("Close Me"))
+     show_another_window = false;
+    ImGui::End();
+   }
+
+   // Rendering
+   ImGui::Render();
+   const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
+   m_pd3dDeviceContext->OMSetRenderTargets(1, &m_mainRenderTargetView, NULL);
+   m_pd3dDeviceContext->ClearRenderTargetView(m_mainRenderTargetView, clear_color_with_alpha);
+   ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
+   m_pSwapChain->Present(1, 0); // Present with vsync
+   //g_pSwapChain->Present(0, 0); // Present without vsync
+  }
+
+  // Cleanup
+  ImGui_ImplDX11_Shutdown();
+  ImGui_ImplWin32_Shutdown();
+  ImGui::DestroyContext();
+
+  CleanupDeviceD3D();
+  ::DestroyWindow(hwnd);
+  ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+#elif IMGUI_WIN32_DIRECTX12
+  // Create application window
+  //ImGui_ImplWin32_EnableDpiAwareness();
+  const DWORD dwCreateStyle = _This->m_hParent ? (WS_CHILD | WS_OVERLAPPEDWINDOW) : WS_OVERLAPPEDWINDOW;
+  WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, ::GetModuleHandleW(NULL), NULL, NULL, NULL, NULL, L"ImGui Example", NULL };
+  ::RegisterClassExW(&wc);
+  _This->m_hWnd = \
+   ::CreateWindowW(
+    wc.lpszClassName,
+    L"Dear ImGui DirectX12 Example",
+    dwCreateStyle,
+    100, 100, 1280, 800, _This->m_hParent, NULL, wc.hInstance, _This);
+
+  // Initialize Direct3D
+  if (!_This->CreateDeviceD3D(_This->m_hWnd))
+  {
+   _This->CleanupDeviceD3D();
+   ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+   return 1;
+  }
+
+  // Show the window
+  ::ShowWindow(_This->m_hWnd, SW_SHOWDEFAULT);
+  ::UpdateWindow(_This->m_hWnd);
+
+  ::SetEvent(_This->m_hWaitForMainWndCreate);
+
+  // Setup Dear ImGui context
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImGuiIO& io = ImGui::GetIO(); (void)io;
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+  // Setup Dear ImGui style
+  ImGui::StyleColorsDark();
+  //ImGui::StyleColorsLight();
+
+  // Setup Platform/Renderer backends
+  ImGui_ImplWin32_Init(_This->m_hWnd);
+  ImGui_ImplDX12_Init(_This->m_pD3D12Device, NUM_FRAMES_IN_FLIGHT,
+   DXGI_FORMAT_R8G8B8A8_UNORM, _This->m_pD3DSrvDescHeap,
+   _This->m_pD3DSrvDescHeap->GetCPUDescriptorHandleForHeapStart(),
+   _This->m_pD3DSrvDescHeap->GetGPUDescriptorHandleForHeapStart());
+
+  // Load Fonts
+  // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
+  // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
+  // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
+  // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
+  // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use Freetype for higher quality font rendering.
+  // - Read 'docs/FONTS.md' for more instructions and details.
+  // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
+  //io.Fonts->AddFontDefault();
+  //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
+  //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
+  //IM_ASSERT(font != NULL);
+
+  // Our state
+  bool show_demo_window = true;
+  bool show_another_window = false;
+  ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+  // Main loop
+  bool done = false;
+  while (!done)
+  {
+   // Poll and handle messages (inputs, window resize, etc.)
+   // See the WndProc() function below for our to dispatch events to the Win32 backend.
+   MSG msg;
+   while (::PeekMessageW(&msg, NULL, 0U, 0U, PM_REMOVE))
+   {
+    ::TranslateMessage(&msg);
+    ::DispatchMessage(&msg);
+    if (msg.message == WM_QUIT)
+     done = true;
+   }
+   if (done)
+    break;
+
+   // Start the Dear ImGui frame
+   ImGui_ImplDX12_NewFrame();
+   ImGui_ImplWin32_NewFrame();
+   ImGui::NewFrame();
+
+   // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+   if (show_demo_window)
+    ImGui::ShowDemoWindow(&show_demo_window);
+
+   // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
+   {
+    static float f = 0.0f;
+    static int counter = 0;
+
+    ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+
+    ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+    ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+    ImGui::Checkbox("Another Window", &show_another_window);
+
+    ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+    ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+
+    if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+     counter++;
+    ImGui::SameLine();
+    ImGui::Text("counter = %d", counter);
+
+    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+    ImGui::End();
+   }
+
+   // 3. Show another simple window.
+   if (show_another_window)
+   {
+    ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+    ImGui::Text("Hello from another window!");
+    if (ImGui::Button("Close Me"))
+     show_another_window = false;
+    ImGui::End();
+   }
+   // Rendering
+   ImGui::Render();
+   FrameContext* frameCtx = _This->WaitForNextFrameResources();
+   UINT backBufferIdx = _This->m_pSwapChain->GetCurrentBackBufferIndex();
+   frameCtx->CommandAllocator->Reset();
+   D3D12_RESOURCE_BARRIER barrier = {};
+   barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+   barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+   barrier.Transition.pResource = _This->m_pMainRenderTargetResources[backBufferIdx];
+   barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+   barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+   barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+   _This->m_pD3DCommandList->Reset(frameCtx->CommandAllocator, NULL);
+   _This->m_pD3DCommandList->ResourceBarrier(1, &barrier);
+   // Render Dear ImGui graphics
+   const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
+   _This->m_pD3DCommandList->ClearRenderTargetView(_This->m_pMainRenderTargetDescriptors[backBufferIdx], clear_color_with_alpha, 0, NULL);
+   _This->m_pD3DCommandList->OMSetRenderTargets(1, &_This->m_pMainRenderTargetDescriptors[backBufferIdx], FALSE, NULL);
+   _This->m_pD3DCommandList->SetDescriptorHeaps(1, &_This->m_pD3DSrvDescHeap);
+   ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), _This->m_pD3DCommandList);
+   barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+   barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+   _This->m_pD3DCommandList->ResourceBarrier(1, &barrier);
+   _This->m_pD3DCommandList->Close();
+   _This->m_pD3DCommandQueue->ExecuteCommandLists(1, (ID3D12CommandList* const*)&_This->m_pD3DCommandList);
+   _This->m_pSwapChain->Present(1, 0); // Present with vsync
+   //g_pSwapChain->Present(0, 0); // Present without vsync
+   UINT64 fenceValue = _This->m_nFenceLastSignaledValue + 1;
+   _This->m_pD3DCommandQueue->Signal(_This->m_pFence, fenceValue);
+   _This->m_nFenceLastSignaledValue = fenceValue;
+   frameCtx->FenceValue = fenceValue;
+  }
+  _This->WaitForLastSubmittedFrame();
+  // Cleanup
+  ImGui_ImplDX12_Shutdown();
+  ImGui_ImplWin32_Shutdown();
+  ImGui::DestroyContext();
+  _This->CleanupDeviceD3D();
+  ::DestroyWindow(_This->m_hWnd);
+  ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+#elif IMGUI_GLFW_OPENGL2
+  glfwSetErrorCallback([](int, const char*) {});
+  if (!glfwInit())
+   return 1;
+
+  // Create window with graphics context
+  GLFWwindow* window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL2 example", NULL, NULL);
+  if (window == NULL)
+   return 1;
+  glfwMakeContextCurrent(window);
+  glfwSwapInterval(1); // Enable vsync
+
+  // Setup Dear ImGui context
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImGuiIO& io = ImGui::GetIO(); (void)io;
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+  // Setup Dear ImGui style
+  ImGui::StyleColorsDark();
+  //ImGui::StyleColorsLight();
+
+  // Setup Platform/Renderer backends
+  ImGui_ImplGlfw_InitForOpenGL(window, true);
+  ImGui_ImplOpenGL2_Init();
+
+  // Load Fonts
+  // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
+  // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
+  // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
+  // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
+  // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use Freetype for higher quality font rendering.
+  // - Read 'docs/FONTS.md' for more instructions and details.
+  // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
+  //io.Fonts->AddFontDefault();
+  //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
+  //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
+  //IM_ASSERT(font != NULL);
+
+  // Our state
+  bool show_demo_window = true;
+  bool show_another_window = false;
+  ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+  // Main loop
+  while (!glfwWindowShouldClose(window))
+  {
+   // Poll and handle events (inputs, window resize, etc.)
+   // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
+   // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite your copy of the mouse data.
+   // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or clear/overwrite your copy of the keyboard data.
+   // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
+   glfwPollEvents();
+
+   // Start the Dear ImGui frame
+   ImGui_ImplOpenGL2_NewFrame();
+   ImGui_ImplGlfw_NewFrame();
+   ImGui::NewFrame();
+
+   // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+   if (show_demo_window)
+    ImGui::ShowDemoWindow(&show_demo_window);
+
+   // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
+   {
+    static float f = 0.0f;
+    static int counter = 0;
+
+    ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+
+    ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+    ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+    ImGui::Checkbox("Another Window", &show_another_window);
+
+    ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+    ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+
+    if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+     counter++;
+    ImGui::SameLine();
+    ImGui::Text("counter = %d", counter);
+
+    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+    ImGui::End();
+   }
+
+   // 3. Show another simple window.
+   if (show_another_window)
+   {
+    ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+    ImGui::Text("Hello from another window!");
+    if (ImGui::Button("Close Me"))
+     show_another_window = false;
+    ImGui::End();
+   }
+
+   // Rendering
+   ImGui::Render();
+   int display_w, display_h;
+   glfwGetFramebufferSize(window, &display_w, &display_h);
+   glViewport(0, 0, display_w, display_h);
+   glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
+   glClear(GL_COLOR_BUFFER_BIT);
+
+   // If you are using this code with non-legacy OpenGL header/contexts (which you should not, prefer using imgui_impl_opengl3.cpp!!),
+   // you may need to backup/reset/restore other state, e.g. for current shader using the commented lines below.
+   //GLint last_program;
+   //glGetIntegerv(GL_CURRENT_PROGRAM, &last_program);
+   //glUseProgram(0);
+   ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
+   //glUseProgram(last_program);
+
+   glfwMakeContextCurrent(window);
+   glfwSwapBuffers(window);
+  }
+
+  // Cleanup
+  ImGui_ImplOpenGL2_Shutdown();
+  ImGui_ImplGlfw_Shutdown();
+  ImGui::DestroyContext();
+
+  glfwDestroyWindow(window);
+  glfwTerminate();
+#elif IMGUI_GLFW_OPENGL3
+  glfwSetErrorCallback([](int, const char*) {});
+  if (!glfwInit())
+   return 1;
+
+  // GL 3.0 + GLSL 130
+  const char* glsl_version = "#version 130";
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+  //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
+  //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
+
+  // Create window with graphics context
+  GLFWwindow* window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
+  if (window == NULL)
+   return 1;
+  glfwMakeContextCurrent(window);
+  glfwSwapInterval(1); // Enable vsync
+
+  // Setup Dear ImGui context
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImGuiIO& io = ImGui::GetIO(); (void)io;
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+  // Setup Dear ImGui style
+  ImGui::StyleColorsDark();
+  //ImGui::StyleColorsLight();
+  // Setup Platform/Renderer backends
+  ImGui_ImplGlfw_InitForOpenGL(window, true);
+  ImGui_ImplOpenGL3_Init(glsl_version);
+  // Load Fonts
+  // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
+  // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
+  // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
+  // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
+  // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use Freetype for higher quality font rendering.
+  // - Read 'docs/FONTS.md' for more instructions and details.
+  // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
+  // - Our Emscripten build process allows embedding fonts to be accessible at runtime from the "fonts/" folder. See Makefile.emscripten for details.
+  //io.Fonts->AddFontDefault();
+  //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
+  //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
+  //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
+  //IM_ASSERT(font != NULL);
+
+  // Our state
+  bool show_demo_window = true;
+  bool show_another_window = false;
+  ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+  // Main loop
+#ifdef __EMSCRIPTEN__
+    // For an Emscripten build we are disabling file-system access, so let's not attempt to do a fopen() of the imgui.ini file.
+    // You may manually call LoadIniSettingsFromMemory() to load settings from your own storage.
+  io.IniFilename = NULL;
+  EMSCRIPTEN_MAINLOOP_BEGIN
+#else
+  while (!glfwWindowShouldClose(window))
+#endif
+  {
+   // Poll and handle events (inputs, window resize, etc.)
+   // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
+   // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite your copy of the mouse data.
+   // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or clear/overwrite your copy of the keyboard data.
+   // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
+   glfwPollEvents();
+
+   // Start the Dear ImGui frame
+   ImGui_ImplOpenGL3_NewFrame();
+   ImGui_ImplGlfw_NewFrame();
+   ImGui::NewFrame();
+
+   // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+   if (show_demo_window)
+    ImGui::ShowDemoWindow(&show_demo_window);
+
+   // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
+   {
+    static float f = 0.0f;
+    static int counter = 0;
+
+    ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+
+    ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+    ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+    ImGui::Checkbox("Another Window", &show_another_window);
+
+    ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+    ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+
+    if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+     counter++;
+    ImGui::SameLine();
+    ImGui::Text("counter = %d", counter);
+
+    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+    ImGui::End();
+   }
+
+   // 3. Show another simple window.
+   if (show_another_window)
+   {
+    ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+    ImGui::Text("Hello from another window!");
+    if (ImGui::Button("Close Me"))
+     show_another_window = false;
+    ImGui::End();
+   }
+
+   // Rendering
+   ImGui::Render();
+   int display_w, display_h;
+   glfwGetFramebufferSize(window, &display_w, &display_h);
+   glViewport(0, 0, display_w, display_h);
+   glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
+   glClear(GL_COLOR_BUFFER_BIT);
+   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+   glfwSwapBuffers(window);
+  }
+#ifdef __EMSCRIPTEN__
+  EMSCRIPTEN_MAINLOOP_END;
+#endif
+
+  // Cleanup
+  ImGui_ImplOpenGL3_Shutdown();
+  ImGui_ImplGlfw_Shutdown();
+  ImGui::DestroyContext();
+  glfwDestroyWindow(window);
+  glfwTerminate();
+#elif IMGUI_GLUT_OPENGL2
+  // Create GLUT window
+  glutInit(&__argc, __argv);
+  glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);
+  glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_MULTISAMPLE);
+  glutInitWindowSize(m_WindowSize.cx, m_WindowSize.cy);
+  if (1 != glutCreateWindow("Dear ImGui GLUT+OpenGL2 Example"))
+   break;
+  // Setup Dear ImGui context
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  m_pImGuiIO = &GetIO();
+  if (!m_pImGuiIO)
+   break;
+  m_pImGuiIO->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+  // Setup Dear ImGui style
+  ImGui::StyleColorsDark();
+  //ImGui::StyleColorsLight();
+  // Setup Platform/Renderer backends
+  // FIXME: Consider reworking this example to install our own GLUT funcs + forward calls ImGui_ImplGLUT_XXX ones, instead of using ImGui_ImplGLUT_InstallFuncs().
+  ImGui_ImplGLUT_Init();
+  ImGui_ImplOpenGL2_Init();
+  ImGui_ImplGLUT_InstallFuncs();
+
+  glutDisplayFunc(
+   []() {
+    ImGui_ImplOpenGL2_NewFrame();
+    ImGui_ImplGLUT_NewFrame();
+    if (show_demo_window)
+     ImGui::ShowDemoWindow(&show_demo_window);
+    {
+     static float f = 0.0f;
+     static int counter = 0;
+     ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+     ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+     ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+     ImGui::Checkbox("Another Window", &show_another_window);
+     ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+     ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+     if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+      counter++;
+     ImGui::SameLine();
+     ImGui::Text("counter = %d", counter);
+     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / GetIO().Framerate, GetIO().Framerate);
+     ImGui::End();
+    }
+    if (show_another_window) {
+     ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+     ImGui::Text("Hello from another window!");
+     if (ImGui::Button("Close Me"))
+      show_another_window = false;
+     ImGui::End();
+    }
+    // Rendering
+    ImGui::Render();
+    ImGuiIO& io = ImGui::GetIO();
+    glViewport(0, 0, (GLsizei)io.DisplaySize.x, (GLsizei)io.DisplaySize.y);
+    glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
+    glClear(GL_COLOR_BUFFER_BIT);
+    //glUseProgram(0); // You may want this if using this code in an OpenGL 3+ context where shaders may be bound, but prefer using the GL3+ code.
+    ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
+    glutSwapBuffers();
+    glutPostRedisplay();
+   });
+
+  glutMainLoop();
+
+  m_RenderThread = std::thread(
+   [&]() {
+    do {
+     if (!m_IsOpen.load())
+      break;
+    } while (0);
+ });
+#endif
+
+
+
+  return 0;
+}
 }///namespace ImGui
 
 

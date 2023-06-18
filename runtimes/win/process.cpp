@@ -625,31 +625,32 @@ namespace shared {
   const bool& show /*= false*/,
   const DWORD& wait_time /*= 0*/) {
   bool result = false;
-  char* pCmd = nullptr;
   HANDLE hCreateProcessToken = nullptr;
   do {
    if (!hToken)
     break;
    if (!Win::AccessA(exePathname))
     break;
-   AdjustProcessOrThreadPrivilege(::GetCurrentProcess(), SE_INCREASE_QUOTA_NAME, true);
-   AdjustProcessOrThreadPrivilege(::GetCurrentProcess(), SE_ASSIGNPRIMARYTOKEN_NAME, true);
+   //!@ 可能不需要调整 相应权限
+   //AdjustProcessOrThreadPrivilege(::GetCurrentProcess(), SE_INCREASE_QUOTA_NAME, true);
+   //AdjustProcessOrThreadPrivilege(::GetCurrentProcess(), SE_ASSIGNPRIMARYTOKEN_NAME, true);
    if (FALSE == ::DuplicateTokenEx(hToken, MAXIMUM_ALLOWED, NULL, SecurityAnonymous, TokenPrimary, &hCreateProcessToken))
     break;
-   if (!commandline.empty()) {
-    pCmd = new char[commandline.size()];
-    ::memcpy(pCmd, commandline.data(), commandline.size());
-   }
    STARTUPINFOA si = { 0 };
    si.cb = sizeof(si);
    PROCESS_INFORMATION pi = { 0 };
    if (!::CreateProcessAsUserA(
     hCreateProcessToken,
     exePathname.c_str(),
-    pCmd, NULL, NULL,
+    const_cast<char*>(commandline.c_str()),
+    NULL,
+    NULL,
     bInheritHandles ? TRUE : FALSE,
     dwCreateFlags/*CREATE_PROTECTED_PROCESS*/,
-    NULL, NULL, &si, &pi)) {
+    NULL,
+    NULL,
+    &si,
+    &pi)) {
     auto error_no = ::GetLastError();
     break;
    }
@@ -661,7 +662,55 @@ namespace shared {
    result = true;
   } while (0);
   SK_CLOSE_HANDLE(hCreateProcessToken);
-  SK_DELETE_PTR_BUFFER(pCmd);
+  return result;
+ }
+ bool Win::Process::CreateAsUserW(
+  const std::wstring& exePathname,
+  const std::wstring& commandline,
+  const HANDLE& hToken,
+  const std::function<void(const HANDLE&, const DWORD&)>& create_cb,
+  const bool& bInheritHandles /*= false*/,
+  const DWORD& dwCreateFlags /*= CREATE_NEW_CONSOLE*/,
+  const bool& show /*= false*/,
+  const DWORD& wait_time /*= 0*/) {
+  bool result = false;
+  HANDLE hCreateProcessToken = nullptr;
+  do {
+   if (!hToken)
+    break;
+   if (!Win::AccessW(exePathname))
+    break;
+   //!@ 可能不需要调整 相应权限
+   //AdjustProcessOrThreadPrivilege(::GetCurrentProcess(), SE_INCREASE_QUOTA_NAME, true);
+   //AdjustProcessOrThreadPrivilege(::GetCurrentProcess(), SE_ASSIGNPRIMARYTOKEN_NAME, true);
+   if (FALSE == ::DuplicateTokenEx(hToken, MAXIMUM_ALLOWED, NULL, SecurityAnonymous, TokenPrimary, &hCreateProcessToken))
+    break;
+   STARTUPINFOW si = { 0 };
+   si.cb = sizeof(si);
+   PROCESS_INFORMATION pi = { 0 };
+   if (!::CreateProcessAsUserW(
+    hCreateProcessToken,
+    exePathname.c_str(),
+    const_cast<wchar_t*>(commandline.c_str()),
+    NULL,
+    NULL,
+    bInheritHandles ? TRUE : FALSE,
+    dwCreateFlags/*CREATE_PROTECTED_PROCESS*/,
+    NULL,
+    NULL,
+    &si,
+    &pi)) {
+    auto error_no = ::GetLastError();
+    break;
+   }
+   ::WaitForSingleObject(pi.hProcess, wait_time);
+   if (create_cb)
+    create_cb(pi.hProcess, pi.dwProcessId);
+   SK_CLOSE_HANDLE(pi.hThread);
+   SK_CLOSE_HANDLE(pi.hProcess);
+   result = true;
+  } while (0);
+  SK_CLOSE_HANDLE(hCreateProcessToken);
   return result;
  }
  bool Win::Process::CreateAsParentA(
@@ -685,7 +734,6 @@ namespace shared {
    AttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)new char[lpsize];
    if (FALSE == ::InitializeProcThreadAttributeList(AttributeList, 1, 0, &lpsize))
     break;
-
    if (FALSE == ::UpdateProcThreadAttribute(
     AttributeList,
     0,

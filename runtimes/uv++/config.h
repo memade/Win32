@@ -12,12 +12,6 @@ namespace local {
   void Init();
   void UnInit();
  public:
-  void Server(const ServerType&);
-  const ServerType& Server() const override final;
-  void Session(const SessionType&) override final;
-  const SessionType& Session() const override final;
-  void IP(const IPType&) override final;
-  const IPType& IP() const override final;
   void Address(const std::string&) override final;
   const std::string& Address() const override final;
   unsigned long long SessionTimeoutMS() const override final;
@@ -26,14 +20,14 @@ namespace local {
   void KeepAliveTimeMS(const unsigned long long&) override final;
   unsigned long long ClientReconnectionIntervalMS() const override final;
   void ClientReconnectionIntervalMS(const unsigned long long&) override final;
+  void EnableClientWaitForTheInitialConnectionAndReceiveResult(const bool&) override final;
+  bool EnableClientWaitForTheInitialConnectionAndReceiveResult() const override final;
  private:
-  IPType m_IPType;
-  SessionType m_SessionType;
-  ServerType m_ServerType;
   std::string m_Address;
   std::atomic_ullong m_SessionTimeoutMS;
   std::atomic_ullong m_KeepAliveMS;
   std::atomic_ullong m_ClientReconnectionIntervalMS;
+  std::atomic_bool m_EnableClientWaitForTheInitialConnectionAndReceiveResult = false;
  };
 }///namespace lcoal
 

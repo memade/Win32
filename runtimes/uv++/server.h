@@ -3,16 +3,20 @@
 
 namespace local {
 
- class Server final : public IServer {
+ class Server final : public IService {
   std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();
  public:
-  Server();
+  Server(const unsigned long&);
   ~Server();
  public:
   bool Start() override final;
   void Stop() override final;
+  bool Write(const CommandType& , const char*, const size_t&) override final;
+  ServerType ServerTypeGet() const override final;
+  SessionType SessionTypeGet() const override final;
+  AddressType AddressTypeGet() const override final;
   ServerStatus Status() const override final;
-  unsigned long SessionCount() const override final;
+  size_t SessionCount() const override final;
   Config* ConfigGet() const override final;
   void Release() const override final;
  public:
@@ -30,6 +34,8 @@ namespace local {
   std::atomic_ulong m_SessionCount = 0;
   Config* m_pConfig = nullptr;
   ServerStatus m_ServerStatus = ServerStatus::UNKNOWN;
+  const unsigned long m_Identify;
+  shared::container::multimap<CommandType, std::string> m_PushQ;
  };
 
 

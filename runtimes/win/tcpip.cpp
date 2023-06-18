@@ -15,7 +15,7 @@ namespace shared {
 #define  NET_STATE_MODEM_BUSY                       0x08    //调制解调器 繁忙           0x08  
 #define  NET_STATE_SYSTEM_OFFLINE_MODE              0x20    //系统脱机模式              0x20  
 
-#if !defined(WINLIB_DISABLE_WININET)
+#if ENABLE_WIN_DEFINE_WININET
   //!@ 检测网络状态
  static DWORD NetGetConnectedState()
  {

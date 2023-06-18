@@ -24,29 +24,38 @@ namespace libuv {
  using TypeSessionStatus = unsigned char;
  using TypeCommandType = unsigned long;
  using TypeEncryptType = unsigned char;
- using TypeServerType = unsigned long;
- using TypeIPType = unsigned int;
- using TypeSessionType = unsigned long long;
  using TypeErrnoType = long;
 
- enum class IPType : TypeIPType {
-  UNKNOWN = 0x0,
-  IPPROTO_IPV4 = IPPROTO::IPPROTO_IPV4,
-  IPPROTO_IPV6 = IPPROTO::IPPROTO_IPV6,
+ enum class ServerType : unsigned long {
+  UNKNOWN = 0x00000000,
+  INITIATOR = 0x00100000,
+  ACCEPTOR = 0x00200000,
+
+  MAX = 0x00FF0000,
+  MIN = 0x00000000,
  };
 
- enum class ServerType : TypeServerType {
-  UNKNOWN = 0,
-  INITIATOR = 1,
-  ACCEPTOR = 2,
+ enum class SessionType : unsigned short {
+  UNKNOWN = 0x0000,
+  TCP = 0x0100,
+  UDP = 0x0200,
+  IPC = 0x0300,
+  HTTP = 0x0400,
+
+  MAX = 0xFF00,
+  MIN = 0x0000,
  };
 
- enum class SessionType : TypeSessionType {
+ enum class AddressType : unsigned char {
   UNKNOWN = 0x00,
-  TCP = 0x01,
-  UDP = 0x02,
+  IPV4 = 0x01,
+  IPV6 = 0x02,
   IPC = 0x03,
-  HTTP = 0x04,
+
+  BEGIN = IPV4,
+  END = IPC,
+  MAX = 0xFF,
+  MIN = 0x00,
  };
 
  // Enum for different connection status types with integer values
@@ -102,6 +111,7 @@ namespace libuv {
   HELLO = WELCOME,
   HEARTBEAT = 0x10100,
   KEEPALIVE = HEARTBEAT,
+  TESTMSG = 0x10200,
  };
 
  enum class SystemErrorno : TypeErrnoType {
@@ -127,11 +137,11 @@ namespace libuv {
 
  class IConfig {
  public:
-  virtual const ServerType& Server() const = 0;
-  virtual void Session(const SessionType&) = 0;
-  virtual const SessionType& Session() const = 0;
-  virtual void IP(const IPType&) = 0;
-  virtual const IPType& IP() const = 0;
+  /*
+   * ipv4: 0.0.0.0:8888
+   * ipv6: [0:0:0:0:0:0:0:0]:8888
+   * windows pipe: \\.\pipe\ipc_server
+   */
   virtual void Address(const std::string&) = 0;
   virtual const std::string& Address() const = 0;
   virtual unsigned long long SessionTimeoutMS() const = 0;
@@ -140,6 +150,9 @@ namespace libuv {
   virtual void KeepAliveTimeMS(const unsigned long long&) = 0;
   virtual unsigned long long ClientReconnectionIntervalMS() const = 0;
   virtual void ClientReconnectionIntervalMS(const unsigned long long&) = 0;
+  //!@ The client enables wait for the initial connection to complete and receive successfully
+  virtual void EnableClientWaitForTheInitialConnectionAndReceiveResult(const bool&) = 0;
+  virtual bool EnableClientWaitForTheInitialConnectionAndReceiveResult() const = 0;
  };
 
  class ISession {
@@ -160,6 +173,8 @@ namespace libuv {
  };
 
  class ICallback {
+ public:
+  using tfOnAllcoStringCb = std::function<void(const char**, size_t*)>;
  protected:
   using tfOnServerReadyCb = std::function<void(void)>;
   using tfOnForceCloseCb = std::function<void(const ISession*)>;
@@ -173,10 +188,10 @@ namespace libuv {
   using tfOnReceiveReplyCb = std::function<void(const ISession*, \
    const CommandType& cmd_receive, const std::string& message_receive,
    CommandType& cmd_reply,
-   std::string& message_reply)>;
-  using tfOnHelloCb = std::function<void(const ISession*, const std::string& message_receive, std::string& message_reply)>;
+   const tfOnAllcoStringCb& message_reply_cb)>;
+  using tfOnHelloCb = std::function<void(ISession*, const std::string& message_receive, const tfOnAllcoStringCb&)>;
   using tfOnWelcomeCb = tfOnHelloCb;
-  using tfOnHookWelcomeSendCb = std::function<void(const ISession*, std::string&)>;
+  using tfOnHookWelcomeSendCb = std::function<void(const ISession*, const tfOnAllcoStringCb&)>;
   using tfOnHookWriteCb = std::function<void(const ISession*, std::string&)>;
   using tfOnSystemExitCb = std::function<void(void)>;
   using tfOnHookSystemExitCb = std::function<void(bool& action/*Yes|No*/)>;
@@ -185,15 +200,13 @@ namespace libuv {
   using tfOnServerSessionTimeoutCb = std::function<void(const ISession*, const std::time_t&)>;
   using tfOnServerKeepAliveCb = std::function<void(const ISession*, const std::string& message)>;
   using tfOnServerSessionReadyCb = std::function<void(const ISession*)>;
-  using tfOnHookKeepAliveSendCb = std::function<void(const ISession*, std::string&)>;
-  using tfOnKeepAliveCb = std::function<void(const ISession*, const std::string&, std::string&)>;
+  using tfOnHookKeepAliveSendCb = std::function<void(const ISession*, const tfOnAllcoStringCb&)>;
+  using tfOnKeepAliveCb = std::function<void(const ISession*, const std::string&, const tfOnAllcoStringCb&)>;
  protected:
   tfOnKeepAliveCb m_OnKeepAliveCb = nullptr;
   tfOnHookKeepAliveSendCb m_OnHookKeepAliveSendCb = nullptr;
   tfOnHelloCb m_OnHelloCb = nullptr;
   tfOnWelcomeCb m_OnWelcomeCb = nullptr;
-  tfOnHookWelcomeSendCb m_OnHookWelcomeSendCb = nullptr;
-  tfOnServerSessionReadyCb m_OnServerSessionReadyCb = nullptr;
   tfOnAcceptCb m_OnAcceptCb = nullptr;
   tfOnMessageCb m_OnMessageCb = nullptr;
   tfOnSystemExitCb m_OnSystemExitCb = nullptr;
@@ -208,6 +221,8 @@ namespace libuv {
   tfOnSystemMessageCb m_OnSystemMessageCb = nullptr;
   tfOnHookConnectionCb m_OnHookConnectionCb = nullptr;
   tfOnHookServerAddressCb m_OnHookServerAddressCb = nullptr;
+  tfOnHookWelcomeSendCb m_OnHookWelcomeSendCb = nullptr;
+  tfOnServerSessionReadyCb m_OnServerSessionReadyCb = nullptr;
   tfOnServerSessionTimeoutCb m_OnServerSessionTimeoutCb = nullptr;
   tfOnHookSessionCreateCb m_OnHookSessionCreateCb = nullptr;
   tfOnHookSessionDestoryCb m_OnHookSessionDestoryCb = nullptr;
@@ -236,131 +251,132 @@ namespace libuv {
   virtual void RegisterOnHookConnectionCb(const tfOnHookConnectionCb& cb) { m_OnHookConnectionCb = cb; }
   virtual void RegisterOnHookServerAddressCb(const tfOnHookServerAddressCb& cb) { m_OnHookServerAddressCb = cb; }
  protected:
-  virtual void OnKeepAlive(const ISession* session, const std::string& message, std::string& message_reply) {
+  virtual void OnKeepAlive(const ISession* session, const std::string& message, const tfOnAllcoStringCb& message_reply_cb) const {
    if (m_OnKeepAliveCb) {
-    m_OnKeepAliveCb(session, message, message_reply);
+    m_OnKeepAliveCb(session, message, message_reply_cb);
    }
   }
-  virtual void OnHookKeepAliveSend(const ISession* session, std::string& message) {
+  virtual void OnHookKeepAliveSend(const ISession* session, const tfOnAllcoStringCb& message_reply_cb) const {
    if (m_OnHookKeepAliveSendCb) {
-    m_OnHookKeepAliveSendCb(session, message);
+    m_OnHookKeepAliveSendCb(session, message_reply_cb);
    }
   }
-  virtual void OnServerSessionReady(const ISession* session) {
+  virtual void OnServerSessionReady(const ISession* session) const {
    if (m_OnServerSessionReadyCb) {
     m_OnServerSessionReadyCb(session);
    }
   }
-  virtual void OnHookWelcomeSend(const ISession* session, std::string& message) {
+  virtual void OnHookWelcomeSend(const ISession* session, const tfOnAllcoStringCb& message_cb) const {
    if (m_OnHookWelcomeSendCb) {
-    m_OnHookWelcomeSendCb(session, message);
+    m_OnHookWelcomeSendCb(session, message_cb);
    }
   }
-  virtual void OnHello(const ISession* session, const std::string& message_receive, std::string& message_reply) {
+  virtual void OnHello(ISession* session, const std::string& message_receive, const tfOnAllcoStringCb& message_reply_cb) const {
    if (m_OnHelloCb) {
-    m_OnHelloCb(session, message_receive, message_reply);
+    m_OnHelloCb(session, message_receive, message_reply_cb);
    }
   }
-  virtual void OnWelcome(const ISession* session, const std::string& message_receive, std::string& message_reply) {
+  virtual void OnWelcome(ISession* session, const std::string& message_receive, const tfOnAllcoStringCb& message_reply_cb) const {
    if (m_OnWelcomeCb) {
-    m_OnWelcomeCb(session, message_receive, message_reply);
+    m_OnWelcomeCb(session, message_receive, message_reply_cb);
    }
   }
-  virtual void OnServerKeepAlive(const ISession* session, const std::string& message) {
+  virtual void OnServerKeepAlive(const ISession* session, const std::string& message) const {
    if (m_OnServerKeepAliveCb) {
     m_OnServerKeepAliveCb(session, message);
    }
   }
-  virtual void OnServerSessionTimeout(const ISession* session, const std::time_t& timeout_ms) {
+  virtual void OnServerSessionTimeout(const ISession* session, const std::time_t& timeout_ms) const {
    if (m_OnServerSessionTimeoutCb) {
     m_OnServerSessionTimeoutCb(session, timeout_ms);
    }
   }
-  virtual void OnServerReady() {
+  virtual void OnServerReady() const {
    if (m_OnServerReadyCb) {
     m_OnServerReadyCb();
    }
   }
-  virtual void OnHookServerAddress(std::string& address) {
+  virtual void OnHookServerAddress(std::string& address) const {
    if (m_OnHookServerAddressCb) {
     m_OnHookServerAddressCb(address);
    }
   }
-  virtual void OnHookConnection(std::string& address) {
+  virtual void OnHookConnection(std::string& address) const {
    if (m_OnHookConnectionCb) {
     m_OnHookConnectionCb(address);
    }
   }
-  virtual void OnSystemExit() {
+  virtual void OnSystemExit() const {
    if (m_OnSystemExitCb) {
     m_OnSystemExitCb();
    }
   }
-  virtual void OnHookSystemExit(bool& action) {
+  virtual void OnHookSystemExit(bool& action) const {
    if (m_OnHookSystemExitCb) {
     m_OnHookSystemExitCb(action);
    }
   }
-  virtual void OnAccept(const ISession* session, const bool& success) {
+  virtual void OnAccept(const ISession* session, const bool& success) const {
    if (m_OnAcceptCb) { m_OnAcceptCb(session, success); }
   }
-  virtual void OnForceClose(const ISession* session) {
+  virtual void OnForceClose(const ISession* session) const {
    if (m_OnForceCloseCb) { m_OnForceCloseCb(session); }
   }
-  virtual void OnConnection(const ISession* session) {
+  virtual void OnConnection(const ISession* session) const {
    if (m_OnConnectionCb) { m_OnConnectionCb(session); }
   }
-  virtual void OnDisconnection(const ISession* session) {
+  virtual void OnDisconnection(const ISession* session) const {
    if (m_OnDisconnectionCb) { m_OnDisconnectionCb(session); }
   }
-  virtual void OnHookSessionCreate(ISession* session) {
+  virtual void OnHookSessionCreate(ISession* session) const {
    if (m_OnHookSessionCreateCb) { m_OnHookSessionCreateCb(session); }
   }
-  virtual void OnHookSessionDestory(ISession* session) {
+  virtual void OnHookSessionDestory(ISession* session) const {
    if (m_OnHookSessionDestoryCb) { m_OnHookSessionDestoryCb(session); }
   }
-  virtual void OnMessage(const ISession* session, const CommandType& cmd, const std::string& message) {
+  virtual void OnMessage(const ISession* session, const CommandType& cmd, const std::string& message) const {
    if (m_OnMessageCb) { m_OnMessageCb(session, cmd, message); }
   }
-  virtual void OnSystemMessage(const ISession* session, const SystemErrorno& status, const std::string& message) {
+  virtual void OnSystemMessage(const ISession* session, const SystemErrorno& status, const std::string& message) const {
    if (m_OnSystemMessageCb) { m_OnSystemMessageCb(session, status, message); }
   }
   virtual void OnReceiveReply(const ISession* session,
    const CommandType& cmd_receive, const std::string& message_receive, CommandType& cmd_reply,
-   std::string& message_reply) {
+   const tfOnAllcoStringCb& message_reply_cb) const {
    if (m_OnReceiveReplyCb) {
-    m_OnReceiveReplyCb(session, cmd_receive, message_receive, cmd_reply, message_reply);
+    m_OnReceiveReplyCb(session, cmd_receive, message_receive, cmd_reply, message_reply_cb);
    }
   }
-  virtual void OnHookWrite(const ISession* session, std::string& message) {
+  virtual void OnHookWrite(const ISession* session, std::string& message) const {
    if (m_OnHookWriteCb) {
     m_OnHookWriteCb(session, message);
    }
   }
  };
 
- class IClient
-  : public shared::InterfaceDll<IClient>
-  , public ICallback {
+ class IService
+  : public ICallback
+  , public shared::InterfaceDll<IService> {
  public:
   virtual IConfig* ConfigGet() const = 0;
   virtual bool Start() = 0;
   virtual void Stop() = 0;
+  virtual bool Write(const CommandType&, const char*, const size_t&) = 0;
+  virtual ServerType ServerTypeGet() const = 0;
+  virtual SessionType SessionTypeGet() const = 0;
+  virtual AddressType AddressTypeGet() const = 0;
   virtual SessionStatus Status() const = 0;
   virtual void Release() const = 0;
+  virtual size_t SessionCount() const = 0;
  };
 
- class IServer
-  : public shared::InterfaceDll<IServer>
-  , public ICallback {
- public:
-  virtual IConfig* ConfigGet() const = 0;
-  virtual bool Start() = 0;
-  virtual void Stop() = 0;
-  virtual ServerStatus Status() const = 0;
-  virtual void Release() const = 0;
-  virtual unsigned long SessionCount() const = 0;
- };
+
+ template<typename T = std::string>
+ static void T_MESSAGE_REPLY(const T& message, const ICallback::tfOnAllcoStringCb& res_cb) {
+  const char* route = message.data();
+  size_t route_size = message.size();
+  res_cb(&route, &route_size);
+ }
 
 }///namespace libuv
 

@@ -8,40 +8,18 @@ namespace local {
   UnInit();
  }
  void Config::Init() {
-  m_IPType = IPType::IPPROTO_IPV4;
-  m_SessionType = SessionType::TCP;
-  m_ServerType = ServerType::ACCEPTOR;
-  m_KeepAliveMS.store(5000);
+#if 0//_DEBUG
+  m_KeepAliveMS.store(5000000);
+  m_SessionTimeoutMS.store(30000000);
+#else
+  m_KeepAliveMS.store(20000);
   m_SessionTimeoutMS.store(30000);
+#endif
   m_ClientReconnectionIntervalMS.store(10000);
-  m_Address = R"(0.0.0.0:8888)";
+  m_Address = R"(0.0.0.0:8888)";/*[0:0:0:0:0:0:0:0]:8888*/
  }
  void Config::UnInit() {
 
- }
- void Config::Server(const ServerType& type) {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  m_ServerType = type;
- }
- const ServerType& Config::Server() const {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  return m_ServerType;
- }
- void Config::Session(const SessionType& type) {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  m_SessionType = type;
- }
- const SessionType& Config::Session() const {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  return m_SessionType;
- }
- void Config::IP(const IPType& type) {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  m_IPType = type;
- }
- const IPType& Config::IP() const {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  return m_IPType;
  }
  void Config::Address(const std::string& address) {
   std::lock_guard<std::mutex> lock{*m_Mutex};
@@ -75,6 +53,13 @@ namespace local {
   std::lock_guard<std::mutex> lock{*m_Mutex};
   m_ClientReconnectionIntervalMS.store(ms);
  }
-
+ void Config::EnableClientWaitForTheInitialConnectionAndReceiveResult(const bool& enable) {
+  std::lock_guard<std::mutex> lock{*m_Mutex};
+  m_EnableClientWaitForTheInitialConnectionAndReceiveResult.store(enable);
+ }
+ bool Config::EnableClientWaitForTheInitialConnectionAndReceiveResult() const {
+  std::lock_guard<std::mutex> lock{*m_Mutex};
+  return m_EnableClientWaitForTheInitialConnectionAndReceiveResult.load();
+ }
 
 }///namespace local

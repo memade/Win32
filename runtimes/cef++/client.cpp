@@ -5,7 +5,7 @@
 #include "include/views/cef_browser_view.h"
 #include "include/views/cef_window.h"
 #include "include/wrapper/cef_closure_task.h"
-namespace cef {
+namespace local {
  namespace {
   ICefClient* g_instance = nullptr;
   std::string GetDataURI(const std::string& data, const std::string& mime_type) {
@@ -121,4 +121,4 @@ namespace cef {
 
 
 
-}///namespace cef
+}///namespace local

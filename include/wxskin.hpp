@@ -133,6 +133,49 @@
 namespace wx {
  using IdentifyTheme = std::string;
 
+ class IwxThreadEvent final : public wxThreadEvent {
+ public:
+  void RoutePtr(void* ptr) { m_RoutePtr = ptr; }
+  void* RoutePtr() const { return m_RoutePtr; }
+ protected:
+  void* m_RoutePtr = nullptr;
+ };
+
+ class ICallback {
+ protected:
+  using tfOnAppInitCb = std::function<void(const bool&)>;
+  using tfOnAppUninitCb = std::function<void(const int& /*wx exit code.*/)>;
+  using tfOnAppCreateFrameCb = std::function<void(wxFrame*)>;
+  using tfOnAppCreateFrameChildCb = std::function<void(const HWND&)>;
+ public:
+  void RegisterOnAppInitCb(const tfOnAppInitCb& cb) { m_OnAppInitCb = cb; }
+  void RegisterOnAppUninitCb(const tfOnAppUninitCb& cb) { m_OnAppUninitCb = cb; }
+  void RegisterOnAppCreateFrameCb(const tfOnAppCreateFrameCb& cb) { m_OnAppCreateFrameCb = cb; }
+  void RegisterOnAppCreateFrameChildCb(const tfOnAppCreateFrameChildCb& cb) { m_OnAppCreateFrameChildCb = cb; }
+ protected:
+  tfOnAppInitCb m_OnAppInitCb = nullptr;
+  tfOnAppUninitCb m_OnAppUninitCb = nullptr;
+  tfOnAppCreateFrameCb m_OnAppCreateFrameCb = nullptr;
+  tfOnAppCreateFrameChildCb m_OnAppCreateFrameChildCb = nullptr;
+ public:
+  void OnAppInit(const bool& result) {
+   if (m_OnAppInitCb)
+    m_OnAppInitCb(result);
+  }
+  void OnAppUninit(const int& exit_code) {
+   if (m_OnAppUninitCb)
+    m_OnAppUninitCb(exit_code);
+  }
+  void OnAppCreateFrame(wxFrame* frame) {
+   if (m_OnAppCreateFrameCb)
+    m_OnAppCreateFrameCb(frame);
+  }
+  void OnAppCreateFrameChild(HWND& hwnd) {
+   if (m_OnAppCreateFrameChildCb)
+    m_OnAppCreateFrameChildCb(hwnd);
+  }
+ };
+
  class IwxMDIChildFrame : public wxMDIChildFrame {
  public:
   IwxMDIChildFrame(wxMDIParentFrame* parent,
@@ -167,35 +210,36 @@ namespace wx {
   void OnMove(wxMoveEvent& wxEvent);
   void OnCloseWindow(wxCloseEvent& wxEvent);
  };
- class IwxMDIChildFrameImgui : public wxMDIChildFrame {
+ class IwxMDIChildFrameNormal : public wxMDIChildFrame {
  public:
-  IwxMDIChildFrameImgui(wxMDIParentFrame* parent,
+  IwxMDIChildFrameNormal(wxMDIParentFrame* parent,
    wxWindowID id = wxID_ANY,
    const wxString& title = L"",
    const wxPoint& pos = wxDefaultPosition,
    const wxSize& size = wxDefaultSize,
-   long style = wxDEFAULT_FRAME_STYLE,
+   long style = wxDEFAULT_FRAME_STYLE | wxFRAME_NO_WINDOW_MENU,
    const wxString& name = wxASCII_STR(wxFrameNameStr));
-  virtual ~IwxMDIChildFrameImgui();
+  virtual ~IwxMDIChildFrameNormal();
  private:
   void OnSize(wxSizeEvent& wxEvent);
   void OnMove(wxMoveEvent& wxEvent);
   void OnCloseWindow(wxCloseEvent& wxEvent);
  };
 
- class IwxMDIParentFrame : public wxMDIParentFrame {
+ class IwxMDIParentFrame
+  : public wxMDIParentFrame
+  , public ICallback {
  public:
   IwxMDIParentFrame(wxWindow* parent = nullptr,
    const wxWindowID& id = wxID_ANY,
    const wxString& title = L"",
    const wxPoint& pos = wxDefaultPosition,
    const wxSize& size = wxSize(1024, 768),
-   long style = wxDEFAULT_FRAME_STYLE | wxSUNKEN_BORDER | wxFRAME_NO_WINDOW_MENU);
+   long style = wxDEFAULT_FRAME_STYLE | wxFRAME_NO_WINDOW_MENU/*| wxSUNKEN_BORDER | wxFRAME_NO_WINDOW_MENU*/);
   virtual ~IwxMDIParentFrame();
   virtual WXHWND GetHwnd() const;
   virtual void EnableExitConfirmation(const bool&);
-  virtual wxMDIChildFrame* CreateChildNormal();
-  virtual wxMDIChildFrame* CreateChildImGui();
+  virtual wxMDIChildFrame* CreateChildNormal(const HWND&);
  protected:
   void OnSize(wxSizeEvent&);
   void OnClose(wxCloseEvent&);
@@ -296,10 +340,8 @@ namespace wx {
   DECLARE_EVENT_TABLE()
  };
 
- using tfAppInitEventCallback = std::function<void(const bool&)>;
- using tfAppCloseEventNotifyCallback = std::function<void(void)>;
- using tfAppCreateFrameEventCallback = std::function<void(wxFrame*)>;
- class IwxApp : public wxApp {
+
+ class IwxApp : public wxApp, public ICallback {
  public:
   IwxApp();
   virtual ~IwxApp();
@@ -307,32 +349,29 @@ namespace wx {
   void OnCreateFrame(wxThreadEvent& event);
   void OnDestory(wxThreadEvent& event);
   void OnShowWindow(wxThreadEvent& event);
+  void OnCreateMDIChildFrame(wxThreadEvent& event);
  public:
   bool OnInit() override;
   int OnExit() override;
   wxFrame* FrameGet() const;
-  void RegisterAppInitEventCb(const tfAppInitEventCallback&);
-  void RegisterAppCloseEventNotifyCb(const tfAppCloseEventNotifyCallback&);
-  void RegisterAppCreateFrameEventCb(const tfAppCreateFrameEventCallback&);
  protected:
   std::vector<std::thread> m_Threads;
   wxFrame* m_pFrame = nullptr;
-  tfAppInitEventCallback m_AppInitEventCb = nullptr;
-  tfAppCloseEventNotifyCallback m_AppCloseEventNotifyCb = nullptr;
-  tfAppCreateFrameEventCallback m_AppCreateFrameEventCb = nullptr;
  };
 
 
  class IWxui {
  public:
-  IWxui(const HINSTANCE&, const bool& show = true);
+  IWxui(const HINSTANCE&, const bool& show = true, const std::wstring& title = L"");
   virtual ~IWxui();
  public:
   virtual bool Start();
   virtual void Stop();
   virtual void Show(const bool&);
   virtual void Release() const;
+  virtual HWND GetMainWnd() const;
   virtual const HANDLE& MainHandle() const;
+  //virtual void RegisterCreateChildCb(const tfAppCreateFrameChildInitCallback&) const;
   virtual void EnableExitConfirmation(const bool&);
  protected:
   virtual void MainProcess();
@@ -341,6 +380,7 @@ namespace wx {
   Theme* m_pTheme1 = nullptr;
   Theme* m_pTheme2 = nullptr;
  protected:
+  std::wstring m_TitleText;
   bool m_EnableExitConfirmation = true;
   const HINSTANCE m_hInstance = nullptr;
   HWND m_hWnd = nullptr;
@@ -355,6 +395,7 @@ namespace wx {
  extern const int WX_CMD_ONAPPCREATEFRAME;
  extern const int WX_CMD_ONAPPDESTORY;
  extern const int WX_CMD_SHOWWINDOW;
+ extern const int WX_CMD_CreateMDIChildFrame;
 }///namespace wx
 
 

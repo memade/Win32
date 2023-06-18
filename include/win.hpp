@@ -1,6 +1,14 @@
 ﻿#if !defined(INC_H___7379FDD7_F126_4814_ABD3_0DF33647115A__HEAD__)
 #define INC_H___7379FDD7_F126_4814_ABD3_0DF33647115A__HEAD__
 
+#define ENABLE_WIN_DEFINE_NT 1
+#define ENABLE_WIN_DEFINE_IMAGEHLP 1
+#define ENABLE_WIN_DEFINE_WININET 0 //!@ 不兼容 <http_parser.h>
+#define ENABLE_WIN_DEFINE_WINHTTP 0 //!@ 不兼容 <http_parser.h>
+#define ENABLE_WIN_DEFINE_GDIPLUS 1
+#define ENABLE_WIN_DEFINE_ZIP 1
+#define ENABLE_WIN_DEFINE_WINDOWS 1
+
 #include "stdc++.hpp"
 #include "types.h"
 #include <container.hpp>
@@ -11,6 +19,7 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <Windows.h>
+#include <assert.h>
 #include <system_error>
 #include <winioctl.h>
 #include <intrin.h>
@@ -22,7 +31,7 @@
 #include <AclAPI.h>
 #include <IPHlpApi.h>
 #pragma comment(lib,"Iphlpapi.lib")
-#ifndef WINLIB_DISABLE_IMAGEHLP
+#if ENABLE_WIN_DEFINE_IMAGEHLP
 #include <ImageHlp.h>
 #pragma comment(lib,"ImageHlp.lib")  
 #endif
@@ -30,16 +39,16 @@
 #include <rpcdce.h>
 #pragma comment(lib,"Rpcrt4")
 
-#if !defined(WINLIB_DISABLE_WININET)
+#if ENABLE_WIN_DEFINE_WININET
 #include <wininet.h>
 #pragma comment(lib,"Wininet")
 #endif
-#if !defined(WINLIB_DISABLE_WINHTTP)
+#if ENABLE_WIN_DEFINE_WINHTTP
 #include "winhttp.hpp"
 #pragma comment(lib, "winhttp")
 #endif
 
-#if !defined(WINLIB_DISABLE_ZIPPP_H)
+#if ENABLE_WIN_DEFINE_ZIP
 #include <zip++.h>
 #pragma comment(lib,"zip++.lib")
 #endif
@@ -54,6 +63,7 @@
 #pragma comment(lib,"comsuppw")
 #include <shellapi.h>
 #include <wincrypt.h>
+#include <KnownFolders.h>
 #pragma comment(lib,"crypt32")
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi")
@@ -73,7 +83,7 @@
 #include <userenv.h>
 #pragma comment(lib,"Userenv")
 
-#if !defined(WINLIB_DISABLE_GDIPLUS)
+#if ENABLE_WIN_DEFINE_GDIPLUS
 #include <gdiplus.h>
 #pragma comment(lib,"gdiplus")
 #endif
@@ -86,12 +96,12 @@
 
 #include "macro.h"
 //!@ Enable SK NTCore(Packaging)
-#if !defined(WINLIB_DISABLE_NTDEF_H)
-#include "ntdef.h"
-#include <winternl.h>
-#else
+#if ENABLE_WIN_DEFINE_NT
 #include "ntdef.h"
 #include <ntdll.h>
+#else
+#include "ntdef.h"
+#include <winternl.h>
 #endif
 
 #include "iconv.h"
@@ -511,7 +521,7 @@ namespace shared {
   };
   class Tcpip final {
   public:
-#if !defined(DISABLE_WININET)
+#if ENABLE_WIN_DEFINE_WININET
    static bool NetConnectIs();
 #endif
    static std::string ipv4_ltoa(const unsigned long&);
@@ -547,11 +557,11 @@ namespace shared {
    static bool Load(_In_ const HINSTANCE&, _In_ const DWORD&, _In_ LPCSTR, std::string&);
    static bool MadeRoute(const tfRouteRes& ress, tfRoutePak& outres);
    static bool UnMadeRoute(const tfRoutePak& route_data, tfRouteRes& outpak);
-#ifdef WINLIB_DISABLE_ZIPPP_H
+#if ENABLE_WIN_DEFINE_ZIP
+   static bool UnRespak(_In_ const std::string& respak_buffer, _Out_ std::string& out_buffer);
+#else
    static bool UnRespak(_In_ const std::string& respak_buffer, _Out_ std::string& out_buffer, \
     const std::function<bool(const std::string&, const unsigned long& origin_size, std::string&)>& unzip_cb = nullptr);
-#else
-   static bool UnRespak(_In_ const std::string& respak_buffer, _Out_ std::string& out_buffer);
 #endif
   };
 
@@ -749,6 +759,30 @@ namespace shared {
    static bool MD5(const std::string&, std::string&);
    static std::string WemadeEncode(const std::string& strSrc);
    static std::string WemadeDecode(const std::string& in);
+
+#if __cplusplus >= 201703L
+#include <string_view>
+#endif  // __cplusplus >= 201703L
+
+   static std::string base64_encode(std::string const& s, bool url = false);
+   static std::string base64_encode_pem(std::string const& s);
+   static std::string base64_encode_mime(std::string const& s);
+
+   static std::string base64_decode(std::string const& s, bool remove_linebreaks = false);
+   static std::string base64_encode(unsigned char const*, size_t len, bool url = false);
+
+#if __cplusplus >= 201703L
+   //
+   // Interface with std::string_view rather than const std::string&
+   // Requires C++17
+   // Provided by Yannic Bonenberger (https://github.com/Yannic)
+   //
+   static std::string base64_encode(std::string_view s, bool url = false);
+   static std::string base64_encode_pem(std::string_view s);
+   static std::string base64_encode_mime(std::string_view s);
+
+   static std::string base64_decode(std::string_view s, bool remove_linebreaks = false);
+#endif  // __cplusplus >= 201703L
   };
   class Process final {
   public:
@@ -783,9 +817,18 @@ namespace shared {
     const DWORD& wait_time = 10000);
    static bool CreateAsUserA(
     const std::string& exePathname,
-    const std::string& commandline,
-    const HANDLE& hToken,
-    const std::function<void(const HANDLE&, const DWORD&)>&,
+    const std::string& commandline = "",
+    const HANDLE& hToken = nullptr,
+    const std::function<void(const HANDLE&, const DWORD&)>& success_cb = nullptr,
+    const bool& bInheritHandles = false,
+    const DWORD& dwCreateFlags = CREATE_NEW_CONSOLE,
+    const bool& show = false,
+    const DWORD& wait_time = 0);
+   static bool CreateAsUserW(
+    const std::wstring& exePathname,
+    const std::wstring& commandline = L"",
+    const HANDLE& hToken = nullptr,
+    const std::function<void(const HANDLE&, const DWORD&)>& success_cb = nullptr,
     const bool& bInheritHandles = false,
     const DWORD& dwCreateFlags = CREATE_NEW_CONSOLE,
     const bool& show = false,
@@ -879,6 +922,7 @@ namespace shared {
   static bool AccessA(const std::string&);
   static bool AccessW(const std::wstring&);
   static std::string GetTempPathA();
+  static std::wstring GetUserDownFolderPathW();
   static std::wstring GetTempPathW();
   static std::string GetAppDataPathA();
   static std::wstring GetAppDataPathW();
@@ -887,7 +931,7 @@ namespace shared {
   static std::string GetModuleNameA(const bool& RemoveSuffix = false, const HINSTANCE& hModule = nullptr);
   static std::wstring GetModuleNameW(const bool& RemoveSuffix = false, const HINSTANCE& hModule = nullptr);
   static std::string GetModulePathA(const HINSTANCE& hModule = nullptr);
-  static unsigned long GetModulePathA(char* out_buffer, const size_t& out_buffer_size,const HINSTANCE& hModule = nullptr);
+  static unsigned long GetModulePathA(char* out_buffer, const size_t& out_buffer_size, const HINSTANCE& hModule = nullptr);
   static std::wstring GetModulePathW(const HINSTANCE& hModule = nullptr);
   static unsigned long GetModulePathW(wchar_t* out_buffer, const size_t& out_buffer_size, const HINSTANCE& hModule = nullptr);
   static std::string GetModulePathnameA(const HINSTANCE& hModule = nullptr);
@@ -900,8 +944,8 @@ namespace shared {
   //!@ Return example : .exe || .dll || .txt
   static bool GetFileNameAndFormat(_In_ const std::string& pathname, _Out_ std::string& name, _Out_ std::string& format);
   static std::wstring GetNameByPathnameW(const std::wstring&);
-  static std::string GetPathByPathnameA(const std::string&);
-  static std::wstring GetPathByPathnameW(const std::wstring&);
+  static std::string GetPathByPathnameA(const std::string&, const bool& isSuffix = true);
+  static std::wstring GetPathByPathnameW(const std::wstring&, const bool& isSuffix = true);
   static std::string PathFixedA(const std::string&);
   static std::string UrlFixedA(const std::string&);
   static std::wstring PathFixedW(const std::wstring&);
@@ -1067,7 +1111,7 @@ namespace shared {
   static ImageType GetImageTypeByDiskA(const std::string& filePathname);
   static ImageType GetImageTypeByDiskW(const std::wstring& filePathname);
   static ImageType GetImageTypeByMemory(const std::string& file_buffer);
-#if !defined(WINLIB_DISABLE_WINDOWS)
+#if ENABLE_WIN_DEFINE_WINDOWS
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   typedef struct tagWindowConfig final {
    HWND hMain;
@@ -1088,7 +1132,7 @@ namespace shared {
 
   class Window final {
   public:
-#if !defined(DISABLE_GDIPLUS)
+#if ENABLE_WIN_DEFINE_GDIPLUS
    static ULONG_PTR GdiplusStartup();
    static void GdiplusShutdown(_In_ const ULONG_PTR&);
 #endif
@@ -1184,7 +1228,7 @@ namespace shared {
     _In_ const std::function<void(const unsigned int& bmpWidth, const unsigned int& bmpHeight, int& x, int& y)>&
    );
 
-
+   static bool EnumTargetWndOfChildWnd(const HWND& target_wnd, std::vector<HWND>& child_wnd_s);
 
 
   };//!@ End Window
@@ -1258,7 +1302,7 @@ namespace shared {
 
 
 
-#if !defined(WINLIB_DISABLE_WINDOWS)
+#if ENABLE_WIN_DEFINE_WINDOWS
  extern Win::tagWindowConfig* GlobalWindowConfigGet();
 #endif
  /*@IRuntimelog class.

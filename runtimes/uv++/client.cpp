@@ -11,7 +11,8 @@ namespace local {
   const struct sockaddr* addr,
   unsigned flags);
  ///////////////////////////////////////////////////////////////////////////////////////////////////////////
- Client::Client() {
+ Client::Client(const unsigned long& identify)
+  : m_Identify(identify) {
   LOG_INIT;
   Init();
  }
@@ -22,24 +23,19 @@ namespace local {
  void Client::Release() const {
   delete this;
  }
- ServerStatus Client::Status() const {
-  return m_ServerStatus;
- }
  void Client::Init() {
   m_pConfig = new Config();
-  m_pSession = new Session();
  }
  void Client::UnInit() {
   SK_DELETE_PTR(m_pConfig);
-  SK_DELETE_PTR(m_pSession);
  }
- bool Client::Close() const {
-  bool result = false;
-  std::unique_lock<std::mutex> lock{*m_Mutex, std::defer_lock};
-  lock.lock();
-  result = m_IsOpen.load() == false;
-  lock.unlock();
-  return result;
+ size_t Client::SessionCount() const {
+  std::lock_guard<std::mutex> lock{*m_Mutex};
+  return 1;
+ }
+ bool Client::IsClose() const {
+  std::lock_guard<std::mutex> lock{*m_Mutex};
+  return !m_IsOpen.load();
  }
  Config* Client::ConfigGet() const {
   return m_pConfig;
@@ -48,9 +44,21 @@ namespace local {
   do {
    if (m_IsOpen.load())
     break;
-   if (0 != uv_thread_create(&thread_main_, MainProcess, this))
-    break;
+   if (m_pConfig->EnableClientWaitForTheInitialConnectionAndReceiveResult())
+    m_hFirstLogicalEvent = ::CreateEventW(NULL, TRUE, FALSE, NULL);
+
    m_IsOpen.store(true);
+   if (0 != uv_thread_create(&thread_main_, MainProcess, this)) {
+    m_IsOpen.store(false);
+    break;
+   }
+
+   if (!m_IsOpen.load())
+    break;
+
+   if (m_hFirstLogicalEvent)
+    ::WaitForSingleObject(m_hFirstLogicalEvent, INFINITE);
+
   } while (0);
   return m_IsOpen.load();
  }
@@ -58,9 +66,47 @@ namespace local {
   do {
    if (!m_IsOpen.load())
     break;
+   if (m_hFirstLogicalEvent) {
+    ::SetEvent(m_hFirstLogicalEvent);
+    ::WaitForSingleObject(m_hFirstLogicalEvent, INFINITE);
+   }
+   SK_CLOSE_HANDLE(m_hFirstLogicalEvent);
    m_IsOpen.store(false);
    uv_thread_join(&thread_main_);
   } while (0);
+ }
+ bool Client::Write(const CommandType& cmd, const char* data, const size_t& len) {
+  bool result = false;
+  std::lock_guard<std::mutex> lock{*m_Mutex};
+  do {
+   if (!data || len <= 0)
+    break;
+   m_WriteBufferQ.push(cmd, std::string(data, len));
+   result = true;
+  } while (0);
+  return result;
+ }
+ void Client::NotifyFirstLogicalEvent() {
+  std::lock_guard<std::mutex> lock{*m_Mutex};
+  if (m_hFirstLogicalEvent && !m_FirstLogicalEventTriggerFlag.load()) {
+   ::SetEvent(m_hFirstLogicalEvent);
+   m_FirstLogicalEventTriggerFlag.store(true);
+  }
+ }
+ ServerStatus Client::Status() const {
+  return m_ServerStatus;
+ }
+ ServerType Client::ServerTypeGet() const {
+  std::lock_guard<std::mutex> lock{*m_Mutex};
+  return Protocol::GetServerType(m_Identify);;
+ }
+ SessionType Client::SessionTypeGet() const {
+  std::lock_guard<std::mutex> lock{*m_Mutex};
+  return Protocol::GetSessionType(m_Identify);
+ }
+ AddressType Client::AddressTypeGet() const {
+  std::lock_guard<std::mutex> lock{*m_Mutex};
+  return Protocol::GetAddressType(m_Identify);
  }
  ///////////////////////////////////////////////////////////////////////////////////////////////////////////
  static void uv_main_uninit(void* arg, uv_loop_t*& loop, uv_handle_t*& client, uv_handle_t*& connect) {
@@ -92,7 +138,7 @@ namespace local {
    if (0 != uv_loop_init(loop))
     break;
 
-   switch (pClient->ConfigGet()->Session()) {
+   switch (pClient->SessionTypeGet()) {
    case SessionType::TCP: {
     client = reinterpret_cast<uv_handle_t*>(new uv_tcp_t);
     connect = reinterpret_cast<uv_handle_t*>(new uv_connect_t);
@@ -126,9 +172,8 @@ namespace local {
   } while (0);
  }
  void Client::MainProcess(void* arg) {
+  assert(arg);
   Client* pClient = reinterpret_cast<Client*>(arg);
-  if (!pClient)
-   return;
   uv_loop_t* loop = nullptr;
   uv_handle_t* client = nullptr;
   uv_handle_t* connect = nullptr;
@@ -139,9 +184,13 @@ namespace local {
    if (client)
     status = USERDATA_PTR(client)->Status();
 
-   const unsigned long long current_time_ms = shared::TimeStampUTC<std::chrono::milliseconds>();
+   const unsigned long long time_current_ms = shared::TimeStampUTC<std::chrono::milliseconds>();
+   const unsigned long long time_reconnection_interval = time_current_ms - prev_time_ms_reconn;
 
-   if (current_time_ms - prev_time_ms_reconn >= pClient->ConfigGet()->ClientReconnectionIntervalMS()) {
+   do {
+    if (time_reconnection_interval < pClient->ConfigGet()->ClientReconnectionIntervalMS())
+     break;
+    prev_time_ms_reconn = time_current_ms;
 
     switch (status) {
     case SessionStatus::UNKNOWN:
@@ -156,12 +205,12 @@ namespace local {
      pClient->ConfigGet()->Address(connection_address);
 
      Connect(pClient->ConfigGet()->Address(), connect, client);
-     LOG_OUTPUT(std::format("Preparing to connect to the service ({}).", pClient->ConfigGet()->Address()));
+     LOG_OUTPUT("Preparing to connect to the service ({}).", pClient->ConfigGet()->Address());
     }break;
     case SessionStatus::FORCECLOSE: {
      prev_time_ms_keepalive = 0;
      pClient->OnForceClose(client ? SESSION_PTR(client) : nullptr);
-     LOG_OUTPUT(std::format("Disconnect from the service ({}).", pClient->ConfigGet()->Address()));
+     LOG_OUTPUT("Disconnect from the service ({}).", pClient->ConfigGet()->Address());
      uv_main_uninit(arg, loop, client, connect);
      uv_main_init(arg, loop, client, connect);
     }break;
@@ -169,25 +218,42 @@ namespace local {
      break;
     }
 
-    prev_time_ms_reconn = current_time_ms;
-   }
+   } while (0);
+
 
    if (status == SessionStatus::CONNECTED && client) {
     auto pSession = SESSION_PTR(client);
 
+    do {
+     if (pClient->m_WriteBufferQ.empty())
+      break;
+     pClient->m_WriteBufferQ.iterate_clear(
+      [&](const auto& cmd, auto& data, bool&, bool& itclear) {
+       pSession->Write(cmd, data);
+       itclear = true;
+      });
+    } while (0);
+
+
     do {//!@ keepalive
      if (prev_time_ms_keepalive <= 0) {
-      prev_time_ms_keepalive = current_time_ms;
+      prev_time_ms_keepalive = time_current_ms;
       break;
      }
-     if (current_time_ms - prev_time_ms_keepalive < pClient->ConfigGet()->KeepAliveTimeMS())
+     if (time_current_ms - prev_time_ms_keepalive < pClient->ConfigGet()->KeepAliveTimeMS())
       break;
-     prev_time_ms_keepalive = current_time_ms;
+     prev_time_ms_keepalive = time_current_ms;
      if (!pSession)
       break;
 
      std::string keepalive_send_data = R"(#---!)";
-     pClient->OnHookKeepAliveSend(pSession, keepalive_send_data);
+     pClient->OnHookKeepAliveSend(pSession,
+      [&](const char** route, size_t* route_size) {
+       if (*route && *route_size > 0) {
+        keepalive_send_data.clear();
+        keepalive_send_data.append(const_cast<char*>(*route), *route_size);
+       }
+      });
      if (!pSession->Write(CommandType::KEEPALIVE, keepalive_send_data))
       pSession->ForceClose();
     } while (0);
@@ -199,7 +265,6 @@ namespace local {
       });
      if (!req)
       break;
-
      req->handle = client;
      if (0 != uv_write(&req->write, reinterpret_cast<uv_stream_t*>(req->handle), &req->buf, 1, Protocol::uv_write_cb)) {
       pClient->OnSystemMessage(pSession,
@@ -210,7 +275,7 @@ namespace local {
       break;
      }
 
-     prev_time_ms_keepalive = current_time_ms;
+     prev_time_ms_keepalive = time_current_ms;
     } while (0);
 
     do {//read
@@ -228,7 +293,13 @@ namespace local {
      {
       CommandType cmdReply = CommandType::UNKNOWN;
       std::string messageReply;
-      pClient->OnReceiveReply(pSession, head.Command(), message, cmdReply, messageReply);
+      pClient->OnReceiveReply(pSession, head.Command(), message, cmdReply,
+       [&](const char** route, size_t* route_size) {
+        if (*route && *route_size > 0) {
+         messageReply.clear();
+         messageReply.append(const_cast<char*>(*route), *route_size);
+        }
+       });
       if (CommandType::UNKNOWN != cmdReply) {
        if (!pSession->Write(cmdReply, messageReply))
         pSession->ForceClose();
@@ -239,7 +310,13 @@ namespace local {
      switch (head.Command()) {
      case CommandType::WELCOME: {
       std::string replyWelcome;
-      pClient->OnWelcome(pSession, message, replyWelcome);
+      pClient->OnWelcome(pSession, message,
+       [&](const char** route, size_t* route_size) {
+        if (*route && *route_size > 0) {
+         replyWelcome.clear();
+         replyWelcome.append(const_cast<char*>(*route), *route_size);
+        }
+       });
       if (!replyWelcome.empty()) {
        if (!pSession->Write(CommandType::HELLO, replyWelcome)) {
         pSession->ForceClose();
@@ -249,10 +326,9 @@ namespace local {
      default:
       break;
      }
-
+     //!@ 等待第一次接收处理完成
+     pClient->NotifyFirstLogicalEvent();
     } while (0);
-
-
 
    }
 
@@ -260,8 +336,8 @@ namespace local {
    if (loop) {
     uv_run(loop, uv_run_mode::UV_RUN_NOWAIT);
    }
-   if (pClient->Close()) {
-    bool is_close = pClient->Close();
+   if (pClient->IsClose()) {
+    bool is_close = pClient->IsClose();
     pClient->OnHookSystemExit(is_close);
     if (is_close)
      break;
@@ -271,33 +347,34 @@ namespace local {
   uv_main_uninit(arg, loop, client, connect);
   pClient->OnSystemExit();
  }
- void Client::Connect(const std::string& address, uv_handle_t* connect, uv_handle_t* client) {
-  bool bClose = true;
-  auto pSession = SESSION_PTR(client);
-  if (!pSession)
-   return;
-  auto pClient = reinterpret_cast<Client*>(pSession->Caller());
-  if (!pClient)
-   return;
+ bool Client::Connect(const std::string& address, uv_handle_t* connect, uv_handle_t* client) {
+  bool result = false;
+  Client* pClient = nullptr;
+  Session* pSession = nullptr;
   do {
+   if (address.empty() || !connect || !client)
+    break;
+   if (uv_is_closing(client))
+    break;
+   pSession = SESSION_PTR(client);
+   if (!pSession)
+    break;
+   pClient = reinterpret_cast<Client*>(pSession->Caller());
+   if (!pClient)
+    break;
    if (pSession->Status() == SessionStatus::CONNECTING)
     break;
    pSession->Status(SessionStatus::CONNECTING);
-   if (!client || uv_is_closing(client))
-    break;
 
-   switch (pClient->ConfigGet()->Session()) {
+   switch (pClient->SessionTypeGet()) {
    case SessionType::TCP: {
-    std::string ip;
-    unsigned short port = 0;
-    Protocol::parser_ipaddr(address, ip, port);
-    struct sockaddr_in addr = { 0 };
-    if (uv_ip4_addr(ip.c_str(), port, &addr) != 0)
+    std::string sockaddr_buffer;
+    if (!Protocol::MakeIPAddr(pClient->ConfigGet()->Address(), sockaddr_buffer, pClient->AddressTypeGet()))
      break;
     if (0 != uv_tcp_connect(reinterpret_cast<uv_connect_t*>(connect), \
-     reinterpret_cast<uv_tcp_t*>(client), (const struct sockaddr*)&addr, Client::ConnectCb))
+     reinterpret_cast<uv_tcp_t*>(client), (const struct sockaddr*)sockaddr_buffer.data(), Client::ConnectCb))
      break;
-    bClose = false;
+    result = true;
    }break;
    case SessionType::IPC: {
     uv_pipe_connect(
@@ -305,52 +382,62 @@ namespace local {
      reinterpret_cast<uv_pipe_t*>(client),
      pClient->ConfigGet()->Address().c_str(),
      Client::ConnectCb);
-    bClose = false;
+    result = true;
    }break;
    case SessionType::UDP: {
-    struct sockaddr_in addr = { 0 };
-    std::string ip;
-    u_short port = 0;
-    if (!Protocol::parser_ipaddr(address, ip, port))
+    std::string sockaddr_buffer;
+    if (!Protocol::MakeIPAddr(pClient->ConfigGet()->Address(), sockaddr_buffer, pClient->AddressTypeGet()))
      break;
-    if (uv_ip4_addr(ip.c_str(), port, &addr) != 0)
-     break;
-    pSession->SockAddr(addr);
-    if (0 != uv_udp_connect(reinterpret_cast<uv_udp_t*>(client), (const struct sockaddr*)&addr))
+    pSession->SockAddr(*reinterpret_cast<LPSOCKADDR>(sockaddr_buffer.data()));
+    if (0 != uv_udp_connect(reinterpret_cast<uv_udp_t*>(client), reinterpret_cast<LPSOCKADDR>(sockaddr_buffer.data())))
      break;
     if (0 != uv_udp_recv_start(reinterpret_cast<uv_udp_t*>(client), uv_udp_alloc_cb, uv_udp_recv_cb))
      break;
-    bClose = false;
+    result = true;
    }break;
    }
 
+   if (!result)
+    break;
+   result = false;
+
+   {
+
+
+
+   }
+
+   result = true;
   } while (0);
-  if (bClose && pSession) {
+  if (!result && pSession)
    pSession->ForceClose();
-  }
+  return result;
  }
 
  void Client::ConnectCb(uv_connect_t* req, int status) {
-  auto pSession = SESSION_PTR(req);
-  if (!pSession)
-   return;
-  auto pClient = reinterpret_cast<Client*>(pSession->Caller());
-  if (!pClient)
-   return;
   bool success = false;
+  Session* pSession = nullptr;
+  Client* pClient = nullptr;
   do {
+   pSession = SESSION_PTR(req);
+   if (!pSession)
+    break;
+   pClient = reinterpret_cast<Client*>(pSession->Caller());
+   if (!pClient)
+    break;
    if (status < 0) {
     pClient->OnDisconnection(pSession);
+    pClient->NotifyFirstLogicalEvent();
     break;
    }
    if (0 != uv_read_start(reinterpret_cast<uv_stream_t*>(pSession->Handle()), Protocol::uv_alloc_cb, uv_read_cb))
     break;
    pClient->OnConnection(pSession);
    pSession->Status(SessionStatus::CONNECTED);
+   LOG_OUTPUT("Connect to the service({}) complete.", pClient->ConfigGet()->Address());
    success = true;
-   LOG_OUTPUT(std::format("Connect to the service({}) complete.", pClient->ConfigGet()->Address()));
   } while (0);
-  if(!success)
+  if (!success && pSession)
    pSession->ForceClose();
  }
 
@@ -390,6 +477,4 @@ namespace local {
   auto sk = 0;
  }
 
-
- Client* __gpClient = nullptr;
 }///namespace local
