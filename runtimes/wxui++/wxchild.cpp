@@ -1,6 +1,7 @@
 ﻿#include "stdafx.h"
 
 namespace local {
+#if 0
  ChildFrame::ChildFrame(wxMDIParentFrame* parent,
   wxWindowID id /*= wxID_ANY*/,
   const wxString& title /*= LR"(MDIChildFrame®)"*/,
@@ -44,7 +45,7 @@ namespace local {
   wxEvent.Skip();
  }
  void ChildFrame::OnSize(wxSizeEvent& wxEvent) {
-
+#if 0
   do {
    auto parent = wxDynamicCast(GetParent() , MDIFrame);
    if (!parent) 
@@ -57,7 +58,7 @@ namespace local {
     ::PostMessageW(child, WM_SIZE, 0, 0);
    }
   } while (0);
-
+#endif
   wxEvent.Skip();
  }
 
@@ -230,4 +231,5 @@ namespace local {
 
   //wxEvent.Skip();
  }
+#endif
 }///namespace local

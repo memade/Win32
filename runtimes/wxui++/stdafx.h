@@ -1,9 +1,14 @@
 ﻿#if !defined(__BD2E3E9F_0086_4128_8D8F_D87B2144CDA5__)
 #define __BD2E3E9F_0086_4128_8D8F_D87B2144CDA5__
 
+#define ENABLE_SKIN_SUPPORT 0
+
 #include <win.hpp>
+#include <rapidxml.h>
+#include <rapidjson.h>
 #include <wxui.hpp>
 using namespace wxui;
+using namespace skin;
 
 #pragma warning(disable:4996)
 
@@ -83,7 +88,6 @@ using namespace wxui;
 #include "wx/msgdlg.h"
 #include "wx/grid.h"
 #include "wx/propgrid/manager.h"
-#include "wx/treectrl.h"
 #include "wx/spinctrl.h"
 #include "wx/artprov.h"
 #include "wx/clipbrd.h"
@@ -98,6 +102,8 @@ using namespace wxui;
 #include "wx/sysopt.h"
 #include "wx/bookctrl.h"
 #include "wx/treebook.h"
+#include "wx/treectrl.h"
+#include "wx/treelist.h"
 #include "wx/sizer.h"
 #include "wx/fontdlg.h"
 #include "wx/numdlg.h"
@@ -155,9 +161,11 @@ using namespace wxui;
 
 
 #include "config.h"
+#include "wxcontrol.h"
 #include "wxframeweb.h"
 #include "wxchild.h"
 #include "wxframe.h"
+#include "wxmdiframe.h"
 #include "wxapp.h"
 #include "wxui.h"
 #include "export.h"

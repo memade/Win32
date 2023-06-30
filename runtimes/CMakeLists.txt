@@ -116,6 +116,18 @@ foreach(entry ${entries})
    ${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
    ${SOLUTION_ROOT_DIR}/runtimes/cef/109.0.5414.120/${CMAKE_VS_PLATFORM_NAME}/
    )
+		elseif(${origin_entry_name} STREQUAL "skin++")
+   install_sub_project(${entry} ${origin_entry_name} ON)
+			target_include_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_INCLUDE_DIR}
+			${SOLUTION_ROOT_DIR}/third_party/
+			)
+   target_link_directories(${origin_entry_name}
+   PRIVATE
+   ${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
+   ${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
+   )
 		elseif(${origin_entry_name} STREQUAL "zip++")
    install_sub_project(${entry} ${origin_entry_name} OFF)
 			target_include_directories(${origin_entry_name} 

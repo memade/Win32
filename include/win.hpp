@@ -972,7 +972,7 @@ namespace shared {
    tfEnumFolderNode& Files,
    const char* FileFilter = "*.*",
    bool bSleepDirect = false,
-   const std::function<void(const std::string&, const std::string&, const _finddata_t&)>& enumcb = nullptr);
+   const std::function<void(const std::string& relative_pathname, const std::string& name, const _finddata_t&)>& enumcb = nullptr);
 
   static void FindFileAssignPath(
    const std::string& path,
@@ -1136,7 +1136,7 @@ namespace shared {
    static ULONG_PTR GdiplusStartup();
    static void GdiplusShutdown(_In_ const ULONG_PTR&);
 #endif
-
+   static HICON LoadMemIcon(const std::string& input_buffer);
    static bool SetLogo(const HWND&, const HICON&);
    static bool SetLogo2(const HWND&, const HICON&);
 

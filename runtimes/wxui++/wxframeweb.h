@@ -2,6 +2,7 @@
 #define __94A7399D_DE36_4FC7_9187_B821AD4D260B__
 
 namespace local {
+#if 0
  class Wxui;
  class FrameWeb
   : public wxFrame
@@ -201,6 +202,7 @@ namespace local {
  };
 #endif
 
+#endif
 }///namespace local
 
 /// /*_ Memade®（新生™） _**/

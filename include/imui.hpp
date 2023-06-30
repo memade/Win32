@@ -1,7 +1,7 @@
 ﻿#if !defined(__9DDFE096_6FC1_4FCD_A9E4_7235F9965F5A__)
 #define __9DDFE096_6FC1_4FCD_A9E4_7235F9965F5A__
 
-#include <dllinterface.hpp>
+#include <skin.hpp>
 
 namespace imui {
 
@@ -10,7 +10,9 @@ namespace imui {
 
  };
 
- class IImui : public shared::InterfaceDll<IImui>, public shared::IUserInterface {
+#if 0
+ class IImui : public shared::InterfaceDll<IImui>, public skin::ISkinUI {
+#if 0
  protected:
   using tfOnCreateWindowCb = std::function<void(\
     DWORD& dwExStyle,
@@ -30,9 +32,13 @@ namespace imui {
   virtual IConfig* ConfigGet() const = 0;
   virtual void RegisterOnCreateWindowCb(const tfOnCreateWindowCb&) = 0;
   virtual void RegisterOnCreateWindowClassCb(const tfOnCreateWindowClassCb&) = 0;
+#endif
  };
+#endif
 
-
+ class IDearImGui : public shared::InterfaceDll<IDearImGui>, public skin::ISkinUI {
+ public:
+ };
 
 
 }///namespace imui

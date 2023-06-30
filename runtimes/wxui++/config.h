@@ -11,10 +11,8 @@ namespace local {
   void Init();
   void UnInit();
  protected:
-  const char* SkinPath() const override final;
-  void SkinPath(const char*) override final;
-  FrameType FrameTypeGet() const override final;
-  void FrameTypeSet(const FrameType&) override final;
+  //FrameType FrameTypeGet() const override final;
+  //void FrameTypeSet(const FrameType&) override final;
   void MainWindowInitialShow(const bool&) override final;
   void RequestUrl(const char*) override final;
   void EnableChildWindowExclusiveMode(const bool&) override final;
@@ -25,10 +23,9 @@ namespace local {
  private:
   bool m_bMainWindowInitialShow = false;
   bool m_EnableChildWindowExclusiveMode = false;
-  FrameType m_FrameType = FrameType::SDI;
+  FrameType m_FrameType = FrameType::FRAME_SDI;
   std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();
   std::string m_RequesUrl;
-  std::string m_SkinPath;
  };
 
 

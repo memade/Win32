@@ -108,6 +108,17 @@ foreach(entry ${entries})
 			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
 			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
 			)	
+  elseif(${origin_entry_name} STREQUAL "uiskin_test")
+  	target_include_directories(${origin_entry_name} 
+			PRIVATE 
+			${SOLUTION_INCLUDE_DIR}
+			${SOLUTION_ROOT_DIR}/third_party/
+			)
+   target_link_directories(${origin_entry_name} 
+			PRIVATE
+			${SOLUTION_ROOT_DIR}/libs/runtimes/${CMAKE_VS_PLATFORM_NAME}/
+			${SOLUTION_ROOT_DIR}/libs/third_party/${CMAKE_VS_PLATFORM_NAME}/
+			)	
   elseif(${origin_entry_name} STREQUAL "hook_key_test")
   	target_include_directories(${origin_entry_name} 
 			PRIVATE 

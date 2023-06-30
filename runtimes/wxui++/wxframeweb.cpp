@@ -1,16 +1,18 @@
 ﻿#include "stdafx.h"
 
 namespace local {
+#if 0
  FrameWeb::FrameWeb(const Wxui* host)
   : wxFrame(NULL, wxID_ANY, L"wxWebView®")
   , m_pWxui(host) {
 
+#if 0
   auto requrl = reinterpret_cast<Config*>(m_pWxui->ConfigGet())->RequestUrl();
 
   // Create the webview
   m_pBrowser = wxWebView::New();
   m_pBrowser->Create(this, wxID_ANY, requrl, wxDefaultPosition, wxDefaultSize);
-
+#endif
   // Connect the webview events
   Bind(wxEVT_WEBVIEW_NAVIGATING, &FrameWeb::OnNavigationRequest, this, m_pBrowser->GetId());
   Bind(wxEVT_WEBVIEW_NAVIGATED, &FrameWeb::OnNavigationComplete, this, m_pBrowser->GetId());
@@ -1164,6 +1166,8 @@ namespace local {
   sizer->Add(text, 1, wxEXPAND);
   SetSizer(sizer);
  }
+
+#endif
 
 #endif
  }///namespace local

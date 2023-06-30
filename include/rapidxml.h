@@ -40,6 +40,15 @@ namespace shared {
   }
   return pDoc;
  }
+ static std::string rapidxml_output(rapidxml::xml_node<char>* input_xml_node) {
+  std::string result;
+  do {
+   if (!input_xml_node)
+    break;
+   rapidxml::print(std::back_inserter(result), *input_xml_node, 0);
+  } while (0);
+  return result;
+ }
 
 }///namespace shared
 

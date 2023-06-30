@@ -8,16 +8,19 @@ namespace local {
   , public IApp {
   friend class Wxui;
  public:
-  App();
+  App(Wxui*);
   virtual ~App();
  protected:
   int OnExit() override final;
   bool OnInit() override final;
+ public:
+  Wxui* WxuiGet() const;
  protected:
   void RegisterOnAppInitCb(const tfOnAppInitCb&) override final;
   void RegisterOnAppUninitCb(const tfOnAppUninitCb&) override final;
   void RegisterOnAppCreateFrameCb(const tfOnAppCreateFrameCb&) override final;
  protected:
+  Wxui* m_pWxui = nullptr;
   tfOnAppInitCb m_OnAppInitCb = nullptr;
   tfOnAppUninitCb m_OnAppUninitCb = nullptr;
   tfOnAppCreateFrameCb m_OnAppCreateFrameCb = nullptr;

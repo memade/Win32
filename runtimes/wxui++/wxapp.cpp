@@ -2,7 +2,7 @@
 
 namespace local {
 
- App::App() {
+ App::App(Wxui* pWxui) : m_pWxui(pWxui) {
 
  }
 
@@ -17,7 +17,9 @@ namespace local {
   OnAppInit(result);
   return result;
  }
-
+ Wxui* App::WxuiGet() const {
+  return m_pWxui;
+ }
  int App::OnExit() {
   int result = 0;
   result = wxAppConsoleBase::OnExit();

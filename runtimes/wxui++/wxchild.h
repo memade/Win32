@@ -2,7 +2,7 @@
 #define __648139CC_5E52_431F_8A1E_CB96EFB5852D__
 
 namespace local {
-
+#if 0
  class ChildFrame final : public IChildFrame, public wxMDIChildFrame {
  public:
   ChildFrame(wxMDIParentFrame* parent,
@@ -53,7 +53,7 @@ wxSYSTEM_MENU |
   void OnPaint(wxPaintEvent&);
   void OnErase(wxEraseEvent&);
  };
-
+#endif
 }///namespace local
 
 

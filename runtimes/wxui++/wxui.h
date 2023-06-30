@@ -3,6 +3,7 @@
 
 namespace local {
 
+#if 0
  class Wxui final
   : public wxui::IWxui
   , public wxApp {
@@ -29,6 +30,8 @@ namespace local {
  public:
   IConfig* ConfigGet() const override final;
   shared::IUIConfig* UIConfigGet() const override final;
+ public:
+  IFrame* CreateFrame(const FrameType&);
  private:
   void Init();
   void UnInit();
@@ -43,6 +46,40 @@ namespace local {
   tfOnDestroyCb m_OnDestroyCb = nullptr;
   /*std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();*/
  };
+#endif
+
+
+ class Wxui final : public IWxui {
+  std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();
+ public:
+  Wxui();
+  virtual ~Wxui();
+ public:
+  bool Start() override final;
+  void Stop() override final;
+  bool Skin(const char*) override final;
+  void Release() const override final;
+  IFrame* CreateFrame(IControl*) override final;
+  ITreeCtrl* CreateTreeCtrl(IControl*) override final;
+  ITreeList* CreateTreeList(IControl*) override final;
+ private:
+  ISkin* SkinGet() const override final;
+  shared::IUIConfig* UIConfigGet() const override final;
+ private:
+  void Init();
+  void UnInit();
+  static unsigned int __stdcall MainThread(void*);
+  HANDLE m_hMain = nullptr;
+  std::atomic_bool m_IsOpen = false;
+  ISkin* m_pSkin = nullptr;
+  IFrame* m_pFrame = nullptr;
+  shared::IUIConfig* m_pConfig = nullptr;
+ };
+
+
+
+
+
 
  extern HINSTANCE __gpHinstance;
 }///namespace local

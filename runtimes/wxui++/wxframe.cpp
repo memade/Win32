@@ -1,6 +1,56 @@
 ﻿#include "stdafx.h"
 
 namespace local {
+
+ Frame::Frame(
+  const IWxui* host,
+  wxWindow* parent,
+  wxWindowID id,
+  const wxString& title,
+  const wxPoint& pos,
+  const wxSize& size,
+  long style,
+  const wxString& name)
+  : wxFrame(parent, id, title, pos, size, style, name)
+  , host_(host) {
+
+  Bind(wxEVT_SIZE, &Frame::OnSize, this);
+  Bind(wxEVT_CLOSE_WINDOW, &Frame::OnCloseWindow, this);
+ }
+ Frame::~Frame() {
+
+
+  Unbind(wxEVT_SIZE, &Frame::OnSize, this);
+  Unbind(wxEVT_CLOSE_WINDOW, &Frame::OnCloseWindow, this);
+ }
+ void Frame::Show(const bool& flag) {
+  wxFrame::Show(flag);
+ }
+ void Frame::Size(const ISize* size) {
+  if (size)
+   wxFrame::SetSize(wxSize(size->width(), size->height()));
+ }
+ void Frame::Pos(const IPos* pos) {
+  if (pos)
+   wxFrame::SetPosition(wxPoint(pos->x(), pos->y()));
+ }
+ void Frame::Align(const IAlign* align) {
+  if (align) {
+   if (align->type() == AlignType::CENTER)
+    wxFrame::Center();
+  }
+ }
+ void* Frame::Handle() const {
+  return reinterpret_cast<void*>(const_cast<wxWindow*>(dynamic_cast<const wxWindow*>(this)));
+ }
+ void Frame::OnCloseWindow(wxCloseEvent& wxEvent) {
+  wxEvent.Skip(); 
+ }
+ void Frame::OnSize(wxSizeEvent& wxEvent) {
+  wxEvent.Skip();
+ }
+ ////////////////////////////////////////////////////////////////////////////////////////////////////
+#if 0
  ////////////////////////////////////////////////////////////////////////////////////////////////////
  Frame::Frame(
   const Wxui* host,
@@ -85,6 +135,7 @@ namespace local {
  }
  bool MDIFrame::MDIAppendChild(const HWND& hChild) {
   bool result = false;
+#if 0
   do {
    if (!hChild)
     break;
@@ -113,6 +164,7 @@ namespace local {
 
    result = true;
   } while (0);
+#endif
   return result;
  }
  void MDIFrame::RegisterOnFrameCreateChildCb(const tfOnFrameCreateChildCb& cb) {
@@ -140,6 +192,7 @@ namespace local {
   wxEvent.Veto();
  }
  void MDIFrame::OnSize(wxSizeEvent& wxEvent) {
+#if 0
   if (m_pWxui->ConfigGet()->EnableChildWindowExclusiveMode()) {
    do {
     std::vector<HWND> childs;
@@ -150,6 +203,7 @@ namespace local {
      ::PostMessageW(hwnd, WM_SIZE, 0, 0);
    } while (0);
   }
+#endif
   wxEvent.Skip();
  }
 
@@ -162,4 +216,5 @@ namespace local {
  ////////////////////////////////////////////////////////////////////////////////////////////////////
 
  ////////////////////////////////////////////////////////////////////////////////////////////////////
+#endif
 }///namespace local

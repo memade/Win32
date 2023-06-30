@@ -27,8 +27,9 @@ api_object_uninit(void)\
 #define SK_DELETE_PTR_BUFFER(pbuf) {if(pbuf) delete[] pbuf;pbuf=nullptr;}
 #define SK_FREE_LIBRARY(m) {if(m)::FreeLibrary(HMODULE(m));m=nullptr;}
 #define SK_DELETE_PTR_C(p){if(p){::free(p);p=nullptr;}}
-
+#define SK_DESTROY_ICON(icon) {if (icon) { ::DestroyIcon(icon); icon = nullptr;}}
 #define SK_COM_RELEASE(p) { if(p) { (p)->Release(); (p)=nullptr; } }
+#define SK_RELEASE_PTR(p){if (p) { p->Release(); p = nullptr;}}
 
 //!@ Compatible with JSON
 #define SK_FUNCTION __FUNCTION__

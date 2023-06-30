@@ -70,15 +70,15 @@ namespace shared {
 
  class IUIConfig {
  public:
+  virtual void Release() const {}
   virtual void MainWindowInitialShow(const bool&) { return; }
   virtual bool MainWindowInitialShow() const { return false; }
   virtual void RequestUrl(const char*) { return; }
   //!@ 子窗口独占模式
   virtual void EnableChildWindowExclusiveMode(const bool&) { return; }
   virtual bool EnableChildWindowExclusiveMode() const { return false; }
-  //!@ Skin path.
-  virtual void SkinPath(const char*) {}
-  virtual const char* SkinPath() const { return nullptr; }
+  virtual void EnableDpiAwareness(const bool&) {}
+  virtual bool EnableDpiAwareness() const { return false; }
  };
 
  class IUserInterface {

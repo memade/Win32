@@ -13,20 +13,11 @@ namespace local {
  void Config::Init() {
   m_EnableChildWindowExclusiveMode = true;
   m_bMainWindowInitialShow = true;
-  m_FrameType = FrameType::MDI;
-  m_SkinPath =shared::Win::PathFixedA(shared::Win::GetModulePathA() + R"(\skin\)");
+  m_FrameType = FrameType::FRAME_MDI;
  }
 
  void Config::UnInit() {
 
- }
- const char* Config::SkinPath() const {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  return m_SkinPath.c_str();
- }
- void Config::SkinPath(const char* skin_path) {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  m_SkinPath = skin_path;
  }
  void Config::RequestUrl(const char* url) {
   std::lock_guard<std::mutex> lock{*m_Mutex};
@@ -53,12 +44,12 @@ namespace local {
   std::lock_guard<std::mutex> lock{*m_Mutex};
   return m_EnableChildWindowExclusiveMode;
  }
- FrameType Config::FrameTypeGet() const {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  return m_FrameType;
- }
- void Config::FrameTypeSet(const FrameType& type) {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  m_FrameType = type;
- }
+ //FrameType Config::FrameTypeGet() const {
+ // std::lock_guard<std::mutex> lock{*m_Mutex};
+ // return m_FrameType;
+ //}
+ //void Config::FrameTypeSet(const FrameType& type) {
+ // std::lock_guard<std::mutex> lock{*m_Mutex};
+ // m_FrameType = type;
+ //}
 }///namespace local

@@ -1,15 +1,33 @@
 ﻿#if !defined(__49CC2C65_F19B_4977_8AD8_BF7A86BC9F55__)
 #define __49CC2C65_F19B_4977_8AD8_BF7A86BC9F55__
 
+#define IMGUI_GLUT_OPENGL2 0
+#define IMGUI_GLFW_OPENGL2 0
+#define IMGUI_GLFW_OPENGL3 0
+#define IMGUI_WIN32_DIRECTX9 1
+#define IMGUI_WIN32_DIRECTX10 0
+#define IMGUI_WIN32_DIRECTX11 0
+#define IMGUI_WIN32_DIRECTX12 0
+
+#include <imgui.h>
 #include <win.hpp>
 #include <imui.hpp>
 using namespace imui;
-#include "imgui_def.h"
+using namespace skin;
+
+#include "drive.h"
+#include "directx9_win32.h"
+#include "directx10_win32.h"
+#include "directx11_win32.h"
+#include "directx12_win32.h"
+#include "opengl2_glfw.h"
+#include "opengl2_glut.h"
+#include "opengl3_glfw.h"
 
 #include "config.h"
+#include "control.h"
 #include "imui.h"
 #include "export.h"
-
 
 
 #pragma comment(lib,"imgui.lib")
