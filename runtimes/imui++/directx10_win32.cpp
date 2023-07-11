@@ -9,8 +9,9 @@ static bool show_another_window = false;
 static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 namespace local {
 
- Directx10Drive::Directx10Drive(const IDearImGui* host) : IDrive(host) {
-
+ Directx10Drive::Directx10Drive(const IDearImGui* host, const Control* ctrl) : IDrive(host, ctrl) {
+  m_WndClassEx.lpfnWndProc = Directx10Drive::WindowProc;
+  m_WndCreateStructW.lpCreateParams = this;
  }
 
  Directx10Drive::~Directx10Drive() {
@@ -19,23 +20,40 @@ namespace local {
  void Directx10Drive::Release() const {
   delete this;
  }
- bool Directx10Drive::Start() {
+ bool Directx10Drive::Create() {
+  bool result = false;
   do {
-   if (m_IsOpen.load())
+   void(::RegisterClassExW(&m_WndClassEx));
+   m_hWnd = ::CreateWindowW(
+    m_WndCreateStructW.lpszClass,
+    m_WndCreateStructW.lpszName,
+    m_WndCreateStructW.style,
+    m_WndCreateStructW.cx,
+    m_WndCreateStructW.cy,
+    m_WndCreateStructW.x,
+    m_WndCreateStructW.y,
+    m_WndCreateStructW.hwndParent,
+    m_WndCreateStructW.hMenu,
+    m_WndCreateStructW.hInstance,
+    m_WndCreateStructW.lpCreateParams);
+   if (!m_hWnd)
     break;
-   m_IsOpen.store(true);
-   m_Threads.emplace_back([this]() {Process(); });
+   ::ShowWindow(m_hWnd, SW_HIDE);
+   ::UpdateWindow(m_hWnd);
+   result = true;
   } while (0);
-  return m_IsOpen.load();
+  CreateNotify();
+  return result;
  }
- void Directx10Drive::Stop() {
+ void Directx10Drive::Destroy() {
   do {
-   if (!m_IsOpen.load())
-    break;
-   m_IsOpen.store(false);
-   for (auto& t : m_Threads)
-    t.join();
-   m_Threads.clear();
+   ImGui_ImplDX10_Shutdown();
+   ImGui_ImplWin32_Shutdown();
+   ImGui::DestroyContext();
+
+   CleanupDeviceD3D();
+   ::DestroyWindow(m_hWnd);
+   ::UnregisterClassW(m_WndClassEx.lpszClassName, m_WndClassEx.hInstance);
   } while (0);
  }
  bool Directx10Drive::CreateDeviceD3D(HWND hWnd) {
@@ -98,23 +116,17 @@ namespace local {
  }
 
  void Directx10Drive::Process() {
-  // Create application window
   //ImGui_ImplWin32_EnableDpiAwareness();
-  WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WindowProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, L"ImGui Example", NULL };
-  ::RegisterClassExW(&wc);
-  m_hWnd = ::CreateWindowW(wc.lpszClassName, L"Dear ImGui DirectX10 Example", WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, NULL, NULL, wc.hInstance, NULL);
+  if (!Create())
+   return;
 
   // Initialize Direct3D
   if (!CreateDeviceD3D(m_hWnd))
   {
    CleanupDeviceD3D();
-   ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+   ::UnregisterClassW(m_WndClassEx.lpszClassName, m_WndClassEx.hInstance);
    return;
   }
-
-  // Show the window
-  ::ShowWindow(m_hWnd, SW_SHOWDEFAULT);
-  ::UpdateWindow(m_hWnd);
 
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
@@ -173,7 +185,9 @@ namespace local {
    ImGui_ImplDX10_NewFrame();
    ImGui_ImplWin32_NewFrame();
    ImGui::NewFrame();
-
+#if 1
+   OnRender();
+#else
    // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
    if (show_demo_window)
     ImGui::ShowDemoWindow(&show_demo_window);
@@ -210,7 +224,9 @@ namespace local {
      show_another_window = false;
     ImGui::End();
    }
+#endif
 
+   ImGui::EndFrame();
    // Rendering
    ImGui::Render();
    const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
@@ -220,15 +236,10 @@ namespace local {
 
    m_pSwapChain->Present(1, 0); // Present with vsync
    //g_pSwapChain->Present(0, 0); // Present without vsync
+   dynamic_cast<const DearImGui*>(m_pHost)->NotifyUICreateSuccess();
   }
 
-  ImGui_ImplDX10_Shutdown();
-  ImGui_ImplWin32_Shutdown();
-  ImGui::DestroyContext();
-
-  CleanupDeviceD3D();
-  ::DestroyWindow(m_hWnd);
-  ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+  Destroy();
  }
 
 
@@ -266,6 +277,7 @@ namespace local {
    if (_pThis->m_pd3dDevice != NULL && wParam != SIZE_MINIMIZED) {
     _pThis->CleanupRenderTarget();
     _pThis->m_pSwapChain->ResizeBuffers(0, (UINT)LOWORD(lParam), (UINT)HIWORD(lParam), DXGI_FORMAT_UNKNOWN, 0);
+    _pThis->SetSize(Vec2(LOWORD(lParam), HIWORD(lParam)));
     _pThis->CreateRenderTarget();
    }
    return 0;

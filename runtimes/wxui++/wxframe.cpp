@@ -2,7 +2,7 @@
 
 namespace local {
 
- Frame::Frame(
+ IFrame::IFrame(
   const IWxui* host,
   wxWindow* parent,
   wxWindowID id,
@@ -14,39 +14,23 @@ namespace local {
   : wxFrame(parent, id, title, pos, size, style, name)
   , host_(host) {
 
-  Bind(wxEVT_SIZE, &Frame::OnSize, this);
-  Bind(wxEVT_CLOSE_WINDOW, &Frame::OnCloseWindow, this);
+  
+  //SetBackgroundColour(wxColour(255, 0, 0)); // 参数为 RGB 值
+  //SetTransparent(128);
+
+  Bind(wxEVT_SIZE, &IFrame::OnSize, this);
+  Bind(wxEVT_CLOSE_WINDOW, &IFrame::OnCloseWindow, this);
  }
- Frame::~Frame() {
+ IFrame::~IFrame() {
 
 
-  Unbind(wxEVT_SIZE, &Frame::OnSize, this);
-  Unbind(wxEVT_CLOSE_WINDOW, &Frame::OnCloseWindow, this);
+  Unbind(wxEVT_SIZE, &IFrame::OnSize, this);
+  Unbind(wxEVT_CLOSE_WINDOW, &IFrame::OnCloseWindow, this);
  }
- void Frame::Show(const bool& flag) {
-  wxFrame::Show(flag);
- }
- void Frame::Size(const ISize* size) {
-  if (size)
-   wxFrame::SetSize(wxSize(size->width(), size->height()));
- }
- void Frame::Pos(const IPos* pos) {
-  if (pos)
-   wxFrame::SetPosition(wxPoint(pos->x(), pos->y()));
- }
- void Frame::Align(const IAlign* align) {
-  if (align) {
-   if (align->type() == AlignType::CENTER)
-    wxFrame::Center();
-  }
- }
- void* Frame::Handle() const {
-  return reinterpret_cast<void*>(const_cast<wxWindow*>(dynamic_cast<const wxWindow*>(this)));
- }
- void Frame::OnCloseWindow(wxCloseEvent& wxEvent) {
+ void IFrame::OnCloseWindow(wxCloseEvent& wxEvent) {
   wxEvent.Skip(); 
  }
- void Frame::OnSize(wxSizeEvent& wxEvent) {
+ void IFrame::OnSize(wxSizeEvent& wxEvent) {
   wxEvent.Skip();
  }
  ////////////////////////////////////////////////////////////////////////////////////////////////////

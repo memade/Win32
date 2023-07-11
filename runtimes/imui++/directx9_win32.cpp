@@ -10,8 +10,9 @@ static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 namespace local {
 
- Directx9Drive::Directx9Drive(const IDearImGui* host) : IDrive(host) {
-
+ Directx9Drive::Directx9Drive(const IDearImGui* host, const Control* ui_ctrl) : IDrive(host, ui_ctrl) {
+  m_WndClassEx.lpfnWndProc = Directx9Drive::WindowProc;
+  m_WndCreateStructW.lpCreateParams = this;
  }
 
  Directx9Drive::~Directx9Drive() {
@@ -19,25 +20,6 @@ namespace local {
  }
  void Directx9Drive::Release() const {
   delete this;
- }
- bool Directx9Drive::Start() {
-  do {
-   if (m_IsOpen.load())
-    break;
-   m_IsOpen.store(true);
-   //m_Threads.emplace_back([this]() {Process(); });
-  } while (0);
-  return m_IsOpen.load();
- }
- void Directx9Drive::Stop() {
-  do {
-   if (!m_IsOpen.load())
-    break;
-   m_IsOpen.store(false);
-   for (auto& t : m_Threads)
-    t.join();
-   m_Threads.clear();
-  } while (0);
  }
  bool Directx9Drive::CreateDeviceD3D(HWND hWnd) {
   bool result = false;
@@ -79,17 +61,48 @@ namespace local {
    IM_ASSERT(0);
   ImGui_ImplDX9_CreateDeviceObjects();
  }
+ void Directx9Drive::Destroy() {
+  ImGui_ImplDX9_Shutdown();
+  ImGui_ImplWin32_Shutdown();
+  ImGui::DestroyContext();
 
+  CleanupDeviceD3D();
+  ::DestroyWindow(m_hWnd);
+  ::UnregisterClassW(m_WndClassEx.lpszClassName, m_WndClassEx.hInstance);
+ }
+ bool Directx9Drive::Create() {
+  bool result = false;
+  do {
+   void(::RegisterClassExW(&m_WndClassEx));
+   m_hWnd = ::CreateWindowW(
+    m_WndCreateStructW.lpszClass,
+    m_WndCreateStructW.lpszName,
+    m_WndCreateStructW.style,
+    m_WndCreateStructW.cx,
+    m_WndCreateStructW.cy,
+    m_WndCreateStructW.x,
+    m_WndCreateStructW.y,
+    m_WndCreateStructW.hwndParent,
+    m_WndCreateStructW.hMenu,
+    m_WndCreateStructW.hInstance,
+    m_WndCreateStructW.lpCreateParams);
+   if (!m_hWnd)
+    break;
+   ::ShowWindow(m_hWnd, SW_HIDE);
+   ::UpdateWindow(m_hWnd);
+   result = true;
+  } while (0);
+  CreateNotify();
+  return result;
+ }
  void Directx9Drive::Process() {
+  //ImGui_ImplWin32_EnableDpiAwareness();
+  //if (m_pHost && m_pHost->UIConfigGet()->EnableDpiAwareness()) {
+  // ImGui_ImplWin32_EnableDpiAwareness();
+  //}
 
-  if (m_pHost && m_pHost->UIConfigGet()->EnableDpiAwareness()) {
-   ImGui_ImplWin32_EnableDpiAwareness();
-  }
-
-  if (!OnCreateApplicationWindow(this, Directx9Drive::WindowProc))
+  if (!Create())
    return;
-
-  ::UpdateWindow(m_hWnd);
 
   // Initialize Direct3D
   if (!CreateDeviceD3D(m_hWnd)) {
@@ -192,16 +205,14 @@ namespace local {
     if (ImGui::Button("Close Me"))
      show_another_window = false;
     ImGui::End();
-  }
+   }
 #endif
    // Rendering
    ImGui::EndFrame();
    m_pd3dDevice->SetRenderState(D3DRS_ZENABLE, FALSE);
    m_pd3dDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
    m_pd3dDevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
-   D3DCOLOR main_bkcolor = 0;
-   OnRefreshBkcolor(main_bkcolor);
-   m_pd3dDevice->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, main_bkcolor, 1.0f, 0);
+   m_pd3dDevice->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, static_cast<D3DCOLOR>(m_dwMainBkColor), 1.0f, 0);
    if (m_pd3dDevice->BeginScene() >= 0) {
     ImGui::Render();
     ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
@@ -213,22 +224,10 @@ namespace local {
    if (result == D3DERR_DEVICELOST && m_pd3dDevice->TestCooperativeLevel() == D3DERR_DEVICENOTRESET)
     ResetDevice();
    dynamic_cast<const DearImGui*>(m_pHost)->NotifyUICreateSuccess();
- } while (1);
+  } while (1);
 
- ImGui_ImplDX9_Shutdown();
- ImGui_ImplWin32_Shutdown();
- ImGui::DestroyContext();
-
- CleanupDeviceD3D();
- ::DestroyWindow(m_hWnd);
- ::UnregisterClassW(m_WndClassEx.lpszClassName, m_WndClassEx.hInstance);
-}
-
-
-
-
-
-
+  Destroy();
+ }
 
 
 
@@ -260,30 +259,34 @@ namespace local {
    if (spThis->m_pd3dDevice != NULL && wParam != SIZE_MINIMIZED) {
     spThis->m_d3dpp.BackBufferWidth = LOWORD(lParam);
     spThis->m_d3dpp.BackBufferHeight = HIWORD(lParam);
+    spThis->SetSize(Vec2(LOWORD(lParam), HIWORD(lParam)));
     spThis->ResetDevice();
    }
+
+   spThis->OnLayout();
    return 0;
   }break;
   case WM_GETMINMAXINFO: {
-   if (!spThis || !spThis->Host() || !spThis->Host()->SkinGet())
-    break;
-   auto pStyle = spThis->Host()->SkinGet()->MainNode();
-   if (!pStyle)
+   if (!spThis)
     break;
    // 获取最大化信息结构体指针
    LPMINMAXINFO lpMMI = (LPMINMAXINFO)lParam;
-   // 设置最大化宽度和高度
-   if (pStyle->Maxinfo()->cx > 0)
-    lpMMI->ptMaxSize.x = pStyle->Maxinfo()->cx;
-   if (pStyle->Maxinfo()->cy > 0)
-    lpMMI->ptMaxSize.y = pStyle->Maxinfo()->cy;
-   if (pStyle->Mininfo()->cx > 0)
-    lpMMI->ptMinTrackSize.x = pStyle->Mininfo()->cx;
-   if (pStyle->Mininfo()->cy > 0)
-    lpMMI->ptMinTrackSize.y = pStyle->Mininfo()->cy;
+
+   if (spThis->m_MaxSize.x > 0 && spThis->m_MaxSize.y > 0) {
+    lpMMI->ptMaxSize.x = spThis->m_MaxSize.x;
+    lpMMI->ptMaxSize.y = spThis->m_MaxSize.y;
+   }
+
+   if (spThis->m_MinSize.x > 0 && spThis->m_MinSize.y > 0) {
+    lpMMI->ptMinTrackSize.x = spThis->m_MinSize.x;
+    lpMMI->ptMinTrackSize.y = spThis->m_MinSize.y;
+   }
+
+#if 0
    // 设置最大化位置
    lpMMI->ptMaxPosition.x = 0;
    lpMMI->ptMaxPosition.y = 0;
+#endif
    return 0;
   }break;
   case WM_SYSCOMMAND: {

@@ -7,18 +7,17 @@
 #include <d3d11.h>
 namespace local {
 
- class Directx11Drive final : public IDrive {
+ class Directx11Drive : public IDrive {
  public:
-  Directx11Drive(const IDearImGui*);
+  Directx11Drive(const IDearImGui*, const Control*);
   virtual ~Directx11Drive();
  public:
-  bool Start() override final;
-  void Stop() override final;
-  void Release() const override final;
-  void Process() override final;
+  void Release() const override;
+  void Process() override;
+ protected:
+  bool Create() override;
+  void Destroy() override;
  private:
-  WNDCLASSEXW m_WndClassEx = { 0 };
-  std::atomic_bool m_IsOpen = false;
   ID3D11Device* m_pd3dDevice = nullptr;
   ID3D11DeviceContext* m_pd3dDeviceContext = nullptr;
   IDXGISwapChain* m_pSwapChain = nullptr;

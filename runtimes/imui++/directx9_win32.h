@@ -7,18 +7,17 @@
 #include <d3d9.h>
 namespace local {
 
- class Directx9Drive final : public IDrive {
+ class Directx9Drive : public IDrive {
  public:
-  Directx9Drive(const IDearImGui*);
+  Directx9Drive(const IDearImGui*, const Control*);
   virtual ~Directx9Drive();
  public:
-  bool Start() override final;
-  void Stop() override final;
-  void Release() const override final;
-  void Process() override final;
+  void Release() const override;
+  void Process() override;
+ protected:
+  bool Create() override;
+  void Destroy() override;
  private:
-  WNDCLASSEXW m_WndClassEx = { 0 };
-  std::atomic_bool m_IsOpen = false;
   LPDIRECT3D9 m_pD3D = nullptr;
   LPDIRECT3DDEVICE9 m_pd3dDevice = nullptr;
   D3DPRESENT_PARAMETERS m_d3dpp = { 0 };

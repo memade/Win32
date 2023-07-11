@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Controls>
+ <Resources>
+  <Font>
+   <Attribute name="id" value="1" default="" type="INT" comment=""/>
+   <Attribute name="file" value="\path\name.file" default="" type="STRING" comment=""/>
+   <Attribute name="size" value="18.0" default="" type="FLOAT" comment=""/>
+   <Attribute name="bold" value="true" default="false" type="BOOL" comment=""/>
+  </Font>
+  <Image>
+   <Attribute name="id" value="1" default="" type="INT" comment=""/>
+   <Attribute name="file" value="\path\name.file" default="" type="STRING" comment=""/>
+  </Image>
+  <UserData>
+   <Attribute name="id" value="1" default="" type="INT" comment=""/>
+   <Attribute name="file" value="\path\name.file" default="" type="STRING" comment=""/>
+  </UserData>
+ </Resources>
+	<Window parent="">
+  <Attribute name="title_name" value="Hello World !" default="" type="STRING" comment=""/>
+  <Attribute name="class_name" value="B63A8F576D30" default="B63A8F576D30" type="STRING" comment=""/>
+		<Attribute name="size" value="0,0" default="0,0" type="VEC2" comment=""/>
+		<Attribute name="minsize" value="0,0" default="0,0" type="VEC2" comment=""/>
+		<Attribute name="maxsize" value="0,0" default="0,0" type="VEC2" comment=""/>
+  <Attribute name="visible" value="true" default="true" type="BOOL" comment=""/>
+  <Attribute name="bkcolor" value="FFF88D1E" default="" type="ARGB" comment=""/>
+  <Attribute name="alpha" value="1.0" default="" type="FLOAT" comment=""/>
+  <Attribute name="logo" value="1" default="" type="INT" comment=""/>
+  <Attribute name="center" value="true" default="true" type="BOOL" comment=""/>
+	</Window>
+ <Control parent="">
+		<Attribute name="size" default="0,0" type="VEC2" comment=""/>
+		<Attribute name="alpha" default="1.0" type="FLOAT" comment=""/> 
+ </Control>
+ 
+</Controls>

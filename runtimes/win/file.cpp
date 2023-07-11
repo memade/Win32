@@ -739,6 +739,24 @@ namespace shared {
   }
   return result;
  }
+ void Win::File::ReadCXX(const std::string& FilePathname, std::vector<char>& out_buffer, const int& OpenMode) {
+  out_buffer.clear();
+  std::fstream of;
+  of.open(FilePathname, OpenMode);
+  do {
+   if (!of.is_open())
+    break;
+   of.seekg(0, of.end);
+   size_t size = static_cast<size_t>(of.tellg());
+   if (size <= 0)
+    break;
+   out_buffer.resize(size, 0x00);
+   of.seekg(0, of.beg);
+   of.read(&out_buffer[0], size);
+  } while (0);
+  if (of.is_open())
+   of.close();
+ }
  std::string Win::File::ReadCXX(const std::string& FilePathname, const int& OpenMode /*= std::ios::in | std::ios::binary*/) {
   std::string result;
   std::fstream of;
@@ -830,7 +848,7 @@ std::wstring wide_string = converter.from_bytes("\xc4\xe3\xba\xc3”);  //字符
    result = true;
   } while (0);
   return result;
-  }
+ }
 #endif
  bool Win::File::WriteAddto(const std::string& FilePathname, const std::string& WriteData) {
   bool result = false;
@@ -1198,8 +1216,8 @@ std::wstring wide_string = converter.from_bytes("\xc4\xe3\xba\xc3”);  //字符
     }
 
     std::cout << "Success!\n" << std::endl;
+   }
   }
- }
   else
   {
    //TRACE(utils::error::getText(Error));
@@ -1505,10 +1523,10 @@ std::wstring wide_string = converter.from_bytes("\xc4\xe3\xba\xc3”);  //字符
    delete[] pSignBuffer;
    pSignBuffer = nullptr;
    result = !outSignText.empty();
-  } while (0);
+ } while (0);
 #endif
-  return result;
- }
+ return result;
+}
  bool Win::File::Attribute::GetFileObjSignW(const std::wstring& FilePathname, std::wstring& outSignText) {
   bool result = false;
 #if 1 //!@ 旧的方式备份
@@ -1703,9 +1721,9 @@ std::wstring wide_string = converter.from_bytes("\xc4\xe3\xba\xc3”);  //字符
    delete[] pSignBuffer;
    pSignBuffer = nullptr;
    result = !outSignText.empty();
-  } while (0);
+ } while (0);
 #endif
-  return result;
+ return result;
  }
  bool Win::File::Attribute::GetVersionInfoA(_In_ const std::string& FilePathname, _Out_ File::FileVersionInfoA& outFileVersionInfo) {
   bool result = false;

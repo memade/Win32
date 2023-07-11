@@ -13,17 +13,21 @@
 #endif
 namespace local {
 
- class OpenGL3GlfwDrive final : public IDrive {
+ class OpenGL3GlfwDrive : public IDrive {
  public:
-  OpenGL3GlfwDrive(const IDearImGui*);
+  OpenGL3GlfwDrive(const IDearImGui*, const Control*);
   virtual ~OpenGL3GlfwDrive();
  public:
-  bool Start() override final;
-  void Stop() override final;
-  void Release() const override final;
-  void Process() override final;
+  bool Start() override;
+  void Stop() override;
+  void Release() const override;
+  void Process() override;
+ protected:
+  bool Create() override;
+  void Destroy() override;
  private:
   std::atomic_bool m_IsOpen = false;
+  GLFWwindow* m_pGLFWwindow = nullptr;
  };
 
 

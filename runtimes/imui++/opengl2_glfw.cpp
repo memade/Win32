@@ -7,7 +7,7 @@ static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 namespace local {
 
 
- OpenGL2GlfwDrive::OpenGL2GlfwDrive(const IDearImGui* host) : IDrive(host) {
+ OpenGL2GlfwDrive::OpenGL2GlfwDrive(const IDearImGui* host, const Control* ctrl) : IDrive(host, ctrl) {
 
  }
  OpenGL2GlfwDrive::~OpenGL2GlfwDrive() {
@@ -15,6 +15,34 @@ namespace local {
  }
  void OpenGL2GlfwDrive::Release() const {
   delete this;
+ }
+ bool OpenGL2GlfwDrive::Create() {
+  bool result = false;
+  do {
+   glfwSetErrorCallback([](int, const char*) {});
+   if (!glfwInit())
+    break;
+   // Create window with graphics context
+   m_pGLFWWindow = glfwCreateWindow(
+    m_Size.GetCX(), 
+    m_Size.GetCY(), 
+    "Dear ImGui GLFW+OpenGL2 example", NULL, NULL);
+   result = m_pGLFWWindow!=nullptr;
+  } while (0);
+  return result;
+ }
+ void OpenGL2GlfwDrive::Destroy() {
+  do {
+   if (!m_pGLFWWindow)
+    break;
+   // Cleanup
+   ImGui_ImplOpenGL2_Shutdown();
+   ImGui_ImplGlfw_Shutdown();
+   ImGui::DestroyContext();
+
+   glfwDestroyWindow(m_pGLFWWindow);
+   glfwTerminate();
+  } while (0);
  }
  bool OpenGL2GlfwDrive::Start() {
   do {
@@ -38,15 +66,10 @@ namespace local {
 
  void OpenGL2GlfwDrive::Process() {
 
-  glfwSetErrorCallback([](int, const char*) {});
-  if (!glfwInit())
+  if (!Create())
    return;
 
-  // Create window with graphics context
-  GLFWwindow* window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL2 example", NULL, NULL);
-  if (window == NULL)
-   return;
-  glfwMakeContextCurrent(window);
+  glfwMakeContextCurrent(m_pGLFWWindow);
   glfwSwapInterval(1); // Enable vsync
 
   // Setup Dear ImGui context
@@ -61,7 +84,7 @@ namespace local {
   //ImGui::StyleColorsLight();
 
   // Setup Platform/Renderer backends
-  ImGui_ImplGlfw_InitForOpenGL(window, true);
+  ImGui_ImplGlfw_InitForOpenGL(m_pGLFWWindow, true);
   ImGui_ImplOpenGL2_Init();
 
   // Load Fonts
@@ -86,20 +109,20 @@ namespace local {
   ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
   // Main loop
-  while (!glfwWindowShouldClose(window))
-  {
+  while (!glfwWindowShouldClose(m_pGLFWWindow)) {
    // Poll and handle events (inputs, window resize, etc.)
    // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
    // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite your copy of the mouse data.
    // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or clear/overwrite your copy of the keyboard data.
    // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
    glfwPollEvents();
-
    // Start the Dear ImGui frame
    ImGui_ImplOpenGL2_NewFrame();
    ImGui_ImplGlfw_NewFrame();
    ImGui::NewFrame();
-
+#if 1
+   OnRender();
+#else
    // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
    if (show_demo_window)
     ImGui::ShowDemoWindow(&show_demo_window);
@@ -136,11 +159,13 @@ namespace local {
      show_another_window = false;
     ImGui::End();
    }
-
+#endif
+   ImGui::EndFrame();
    // Rendering
    ImGui::Render();
    int display_w, display_h;
-   glfwGetFramebufferSize(window, &display_w, &display_h);
+   glfwGetFramebufferSize(m_pGLFWWindow, &display_w, &display_h);
+   SetSize(Vec2(display_w, display_h));
    glViewport(0, 0, display_w, display_h);
    glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
    glClear(GL_COLOR_BUFFER_BIT);
@@ -153,17 +178,11 @@ namespace local {
    ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
    //glUseProgram(last_program);
 
-   glfwMakeContextCurrent(window);
-   glfwSwapBuffers(window);
+   glfwMakeContextCurrent(m_pGLFWWindow);
+   glfwSwapBuffers(m_pGLFWWindow);
   }
 
-  // Cleanup
-  ImGui_ImplOpenGL2_Shutdown();
-  ImGui_ImplGlfw_Shutdown();
-  ImGui::DestroyContext();
-
-  glfwDestroyWindow(window);
-  glfwTerminate();
+  Destroy();
  }
 
 

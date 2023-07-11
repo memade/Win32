@@ -4,16 +4,15 @@
 namespace local {
 
  class Parser {
-  using tf_parser_create_skin_control_cb = std::function<IControl* ()>;
-  using tf_parser_node_control_cb = std::function<bool(IControl*)>;
  public:
   Parser();
   ~Parser();
  public:
-  static bool parser_xml(const IResources*, 
-   const std::function<INodeRender*(const IResources*, 
-    const ControlType&)>&,const std::function<void(INodeRender*)>& create_success_cb = nullptr);
-  static void parser_rgba(const TypeArgbType&, std::uint8_t& a, std::uint8_t& r, std::uint8_t& g, std::uint8_t& b);
+  static bool parser_xml(const std::string& xml_buffer, const std::function<void(const NodeType&, const std::uintptr_t&, const std::uintptr_t&, const std::map<AttributeType, String>& /*attribute_s*/)>&);
+  static void parser_rgba(const TypeArgb&, std::uint8_t& a, std::uint8_t& r, std::uint8_t& g, std::uint8_t& b);
+  static void parser_rgba(const TypeArgb&, Vec4&);
+  static bool parser_node_type(const String& node_name, NodeType&);
+  static bool parser_node_attribute_type(const String& node_attribute_name, AttributeType&);
  };
 
 

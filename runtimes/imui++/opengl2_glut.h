@@ -8,15 +8,16 @@
 #include <GL/freeglut.h>
 namespace local {
 
- class OpenGL2GlutDrive final : public IDrive {
+ class OpenGL2GlutDrive : public IDrive {
  public:
-  OpenGL2GlutDrive(const IDearImGui*);
+  OpenGL2GlutDrive(const IDearImGui*, const Control*);
   virtual ~OpenGL2GlutDrive();
  public:
-  bool Start() override final;
-  void Stop() override final;
-  void Release() const override final;
-  void Process() override final;
+  void Release() const override;
+  void Process() override;
+ protected:
+  bool Create() override;
+  void Destroy() override;
  private:
   std::atomic_bool m_IsOpen = false;
  };

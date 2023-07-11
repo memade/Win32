@@ -4,69 +4,90 @@
 #include <dllinterface.hpp>
 
 namespace skin {
- using TypeIdentifyType = unsigned int;
- using TypeFrameType = unsigned long;
- using TypeControlType = unsigned long;
- using TypeArgbType = unsigned long;
- using TypeResourcesType = unsigned long;
- using TypeLayoutType = unsigned int;
- using TypeCacheType = std::string;
- using tfCacheCb = std::function<void(const char*, const size_t&)>;
- using tfSkinNodes = std::vector<class INodeRender*>;
- using tfFontNodes = std::map<TypeIdentifyType, class INodeRender*>;
- using tfResNodes = std::map<std::string, class IResources*>;
- using tfNodeCb = std::function<void(class INodeRender*)>;
- using tfNodeEndCb = tfNodeCb;
- using tfNodeBeginCb = tfNodeCb;
- using tfNodeCreateCb = tfNodeCb;
- using tfNodeDestroyCb = tfNodeCb;
+ using TypePixels = float;
+ using TypeArgb = unsigned long;
+ using TypeIdentify = unsigned long;
+ using TypeControl = unsigned long;
+ using TypeAttribute = unsigned long;
+ using TypeLayout = unsigned int;
 
- class IStrings {
+ class ICache {
  public:
+  virtual void Release() const = 0;
+  virtual const char* Buffer() const = 0;
+  virtual const size_t& Size() const = 0;
+ };
+
+ class IString {
+ public:
+  virtual void Release() const = 0;
   virtual const char* str() const = 0;
   virtual const wchar_t* wstr() const = 0;
   virtual const char8_t* u8() const = 0;
   virtual bool empty() const = 0;
   virtual bool compare(const wchar_t*, const bool& i = false) const = 0;
   virtual bool compare(const char*, const bool& i = false) const = 0;
-  virtual bool compare(const IStrings*, const bool& i = false) const = 0;
+  virtual bool compare(const IString*, const bool& i = false) const = 0;
  };
 
- enum LayoutType : TypeLayoutType {
+ struct Vec2 {
+  TypePixels x, y;
+  constexpr Vec2() : x(0.0f), y(0.0f) { }
+  constexpr Vec2(const TypePixels& _x, const TypePixels& _y) : x(_x), y(_y) { }
+  TypePixels& operator[] (size_t idx) { assert(idx == 0 || idx == 1); return ((TypePixels*)(void*)(char*)this)[idx]; }
+  TypePixels  operator[] (size_t idx) const { assert(idx == 0 || idx == 1); return ((const TypePixels*)(const void*)(const char*)this)[idx]; }
+  void operator=(const Vec2& obj) { x = obj.x; y = obj.y; }
+  bool empty() const { return x == 0 && y == 0; }
+  const TypePixels& GetX() const { return x; }
+  const TypePixels& GetY() const { return y; }
+  const TypePixels& GetCX() const { return x; }
+  const TypePixels& GetCY() const { return y; }
+  const TypePixels& GetWidth() const { return x; }
+  const TypePixels& GetHeight() const { return y; }
+  void SetX(const TypePixels& v_) { x = v_; }
+  void SetY(const TypePixels& v_) { y = v_; }
+  void SetCX(const TypePixels& v_) { x = v_; }
+  void SetCY(const TypePixels& v_) { y = v_; }
+  void SetWidth(const TypePixels& v_) { x = v_; }
+  void SetHeight(const TypePixels& v_) { y = v_; }
+ };
+
+ struct Vec4 {
+  TypePixels x, y, z, w;
+  constexpr Vec4() : x(0.0f), y(0.0f), z(0.0f), w(0.0f) { }
+  constexpr Vec4(const TypePixels& _x, const TypePixels& _y, const TypePixels& _z, const TypePixels& _w) : x(_x), y(_y), z(_z), w(_w) { }
+  void operator=(const Vec4& obj) { x = obj.x; y = obj.y; z = obj.z; w = obj.w; }
+  bool empty() const { return x == 0 && y == 0 && z == 0 && w == 0; }
+  void SetX(const TypePixels& v_) { x = v_; }
+  void SetY(const TypePixels& v_) { y = v_; }
+  void SetCX(const TypePixels& v_) { z = v_; }
+  void SetCY(const TypePixels& v_) { w = v_; }
+  void SetWidth(const TypePixels& v_) { z = v_; }
+  void SetHeight(const TypePixels& v_) { w = v_; }
+  void SetPosition(const Vec2& pos) { x = pos.x; y = pos.y; }
+  void SetSize(const Vec2& size) { z = size.x; w = size.y; }
+  const TypePixels& GetX() const { return x; }
+  const TypePixels& GetY() const { return y; }
+  const TypePixels& GetCX() const { return z; }
+  const TypePixels& GetCY() const { return w; }
+  const TypePixels& GetWidth() const { return z; }
+  const TypePixels& GetHeight() const { return w; }
+  Vec2 GetSize() const { return Vec2(z, w); }
+  Vec2 GetPosition() const { return Vec2(x, y); }
+  const TypePixels& GetA() const { return x; }
+  const TypePixels& GetR() const { return y; }
+  const TypePixels& GetG() const { return z; }
+  const TypePixels& GetB() const { return w; }
+  DWORD GetARGB() const { return SK_COLOR_ARGB((int)(x * 0xFF), (int)(y * x * 0xFF), (int)(z * x * 0xFF), (int)(w * x * 0xFF)); }
+ };
+
+ enum LayoutType : TypeLayout {
   Floating = 0x0, //!@ Floating
   Vertical = 0x1,//!@ Vertical
   Horizontal = 0x2,//!@ Horizontal
  };
 
- typedef struct _ARGB {
-  float a;
-  float r;
-  float g;
-  float b;
-
-  _ARGB() { ::memset(this, 0x00, sizeof(*this)); }
-  void operator=(const _ARGB& obj) { ::memcpy(this, &obj, sizeof(*this)); }
- }ARGB, * PARGB;
-
- enum class ResourcesType : TypeResourcesType {
-  UNKNOWN = 0x0000,
-  CONFIG = 0x1000,
-  CONFIG_XML = CONFIG | 0x100,
-  CONFIG_JSON = CONFIG | 0x200,
-  IMAGE = 0x2000,
-  IMAGE_ICON_ = IMAGE | 0x100,
-  IMAGE_PNG = IMAGE | 0x200,
-  IMAGE_JPG = IMAGE | 0x300,
-  IMAGE_GIF = IMAGE | 0x400,
-  DATA = 0x3000,
-  DATA_BIN = DATA | 0x100,
-  DATA_ZIP = DATA | 0x200,
-  FONT = 0x4000,
-  FONT_TTF = FONT | 0x100,
-  FONT_TTC = FONT | 0x200,
- };
-
- enum class ControlType : TypeControlType {
+ typedef enum class NodeType : TypeControl {
   Unknown = 0x0000,
   Window = 0x0100,
   Frame = 0x0200,
@@ -94,218 +115,161 @@ namespace skin {
   RichEdit = 0x9000,
   TreeView = 0xA000,
   TreeNode = 0xB000,
-  Font = 0xC000,
+  Resources = 0xC000,
+  Font = Resources | 0x100,
+  Image = Resources | 0x200,
+  UserData = Resources | 0x300,
+ }ControlType, ResourcesType;
+
+ enum class AttributeType : TypeAttribute {
+  unknown = 0x0,
+  identify = 0x1,
+  position = 0x2,
+  sizebox = 0x3,
+  caption = 0x4,
+  size = 0x5,
+  borderround = 0x6,
+  roundcorner = 0x7,
+  minsize = 0x8,
+  maxsize = 0x9,
+  bkcolor = 0xA,
+  bordercolor = 0xB,
+  bordersize = 0xC,
+  visible = 0xD,
+  rounding = 0xE,
+  alpha = 0xF,
+  floating = 0x10,
+  pixels = 0x11,
+  bold = 0x12,
+  font = 0x13,
+  class_name = 0x14,
+  fontfile = 0x15,
+  bkimage = 0x16,
+  logo = 0x17,
+  name = 0x18,
+  text = 0x19,
+  layout = 0x1A,
+  maximize = 0x1B,
+  file = 0x1D,
+  title_name = 0x1E,
+  center = 0x1F,
+  width = 0x20,
+  height = 0x21,
+ };
+
+ class IAttribute {
+ public:
+  virtual void Release() const = 0;
+  virtual const AttributeType& GetType() const = 0;
+  virtual bool GetBool() const = 0;
+  virtual Vec2 GetVec2() const = 0;
+  virtual Vec4 GetVec4() const = 0;
+  virtual TypeIdentify GetIdentify() const = 0;
+  virtual TypePixels GetFloat() const = 0;
+  virtual const ICache* GetCache() const = 0;
+  virtual const IString* GetString() const = 0;
+  virtual const class IControl* ResourceRef() const = 0;
+  virtual void ResourceRef(const class IControl*) = 0;
+ };
+
+ class IAttributes {
+ public:
+  virtual const ControlType& GetControlType() const = 0;
+  virtual const IAttribute* GetAttribute(const AttributeType&) const = 0;
+  virtual void Release() const = 0;
+  virtual void Push(const IAttribute*) = 0;
+  virtual bool Empty() const = 0;
+  virtual unsigned long Total() const = 0;
+  virtual const IAttribute* Next(const unsigned long&) const = 0;
+  virtual const IString* GetTitleName(const AttributeType& attribute_type = AttributeType::title_name) const = 0;
+  virtual Vec2 GetSize(const AttributeType& attribute_type = AttributeType::size) const = 0;
+  virtual Vec4 GetBkColor(const AttributeType& attribute_type = AttributeType::bkcolor) const = 0;
+  virtual const ICache* GetCache(const AttributeType& attribute_type = AttributeType::file) const = 0;
+  virtual void Iterator(const std::function<void(const AttributeType&, IAttribute*, bool&)>&) const = 0;
+ };
+
+ class IControl {
+ protected:
+  std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();
+  IControl* bind_control_ = nullptr;
+  std::uintptr_t initial_pointer_ = 0;
+  IControl* parent_ = nullptr;
+  TypeIdentify identify_ = 0;
+  ControlType control_type_ = ControlType::Unknown;
+  LayoutType layout_type_ = LayoutType::Vertical;
+  IAttributes* attribute_s_ = nullptr;
+  Vec4 layout_data_;
+ public:
+  virtual void Release() const = 0;
+  virtual const LayoutType& GetLayoutType() const { std::lock_guard<std::mutex>(*m_Mutex); return layout_type_; }
+  virtual const TypeIdentify& Identify() const { std::lock_guard<std::mutex>(*m_Mutex); return identify_; }
+  virtual void Identify(const TypeIdentify& id) { std::lock_guard<std::mutex>(*m_Mutex); identify_ = id; }
+  virtual const ControlType& GetControlType() const { std::lock_guard<std::mutex>(*m_Mutex); return control_type_; }
+  virtual void Parent(IControl* parent) { std::lock_guard<std::mutex>(*m_Mutex); parent_ = parent; }
+  virtual IControl* Parent() const { std::lock_guard<std::mutex>(*m_Mutex); return parent_; }
+  virtual const std::uintptr_t& GetInitialPointer() const { std::lock_guard<std::mutex>(*m_Mutex); return initial_pointer_; }
+  virtual void Bind(IControl* ctrl) { std::lock_guard<std::mutex>(*m_Mutex); bind_control_ = ctrl; }
+  virtual IControl* Bind() const { std::lock_guard<std::mutex>(*m_Mutex); return bind_control_; }
+  virtual const Vec4* GetLayoutData() const { std::lock_guard<std::mutex>(*m_Mutex); return &layout_data_; }
+  virtual void SetLayoutData(const Vec4& layout) { std::lock_guard<std::mutex>(*m_Mutex);  layout_data_ = layout; }
+ };
+
+ typedef class IControls {
+ public:
+  virtual void Release() const = 0;
+  virtual bool Empty() const = 0;
+  virtual void Push(IControl*) = 0;
+  virtual unsigned long Total() const = 0;
+  virtual IControl* Next(const unsigned long&) const = 0;
+  virtual void Iterator(const std::function<void(IControl*, bool&)>&) const = 0;
+  virtual void LayoutIterator(const std::function<void(IControl*, bool&)>&) const = 0;
+  virtual unsigned long LayoutCount() const = 0;
+ }IControlChilds;
+
+ typedef class IControlSK : public IControl {
+ public:
+  virtual void PushChild(IControl*) = 0;
+  virtual const IAttributes* GetAttributes() const { std::lock_guard<std::mutex>(*m_Mutex); return attribute_s_; }
+  virtual Vec2 GetSize() const = 0;
+  virtual Vec2 GetPosition() const = 0;
+  virtual bool IsFloating() const = 0;
+ }IResource;
+
+ class IControlUI : public IControl {
+ protected:
+  // Whether to start | begin
+  bool rendering_flags_ = false;
+ public:
+  virtual void OnLayout() = 0;
+  virtual void OnRenderBegin() = 0;
+  virtual void OnRenderEnd() = 0;
+  virtual void SetAttributes(const IAttributes* assign) { \
+   std::lock_guard<std::mutex>(*m_Mutex); attribute_s_ = const_cast<IAttributes*>(assign); }
+  virtual const bool& RenderingFlags() const { std::lock_guard<std::mutex>(*m_Mutex); return rendering_flags_; }
+  virtual void RenderingFlags(const bool& flags) { std::lock_guard<std::mutex>(*m_Mutex); rendering_flags_ = flags; }
+  //GetSize actually is GetClientSize.
+  virtual Vec2 GetSize() const { std::lock_guard<std::mutex>(*m_Mutex); return Vec2(); }
  };
 
  class IResources {
  public:
   virtual void Release() const = 0;
-  virtual const ResourcesType& Type() const = 0;
-  virtual const char* Path() const = 0;
-  virtual void Path(const char*) = 0;
-  virtual const char* Pathname() const = 0;
-  virtual void Pathname(const char*) = 0;
-  virtual void Cache(const char*, const size_t&) = 0;
-  virtual void Cache(const tfCacheCb&) const = 0;
-  virtual bool Load() = 0;
- };
-
- class INodeRender {
- public:
-  virtual void DefaultConfigCover() {}
- public:
-  virtual TypeIdentifyType Identify() const { return TypeIdentifyType(0); }
-  virtual ControlType GetType() const { return ControlType::Unknown; }
-  virtual void Release() const {}
-  virtual void Parent(INodeRender*) {}
-  virtual INodeRender* Parent() const { return nullptr; }
-  virtual INodeRender* BeginChild() const { return nullptr; }
-  virtual INodeRender* EndChild() const { return nullptr; }
-  virtual INodeRender* NextChild(const size_t&) const { return nullptr; }
-  virtual size_t TotalChild() const { return 0; }
-  virtual void Push(INodeRender*) {}
-  virtual std::uintptr_t NodeKey() const { return 0; }
-  virtual void NodeKey(const std::uintptr_t&) {}
-  virtual const IResources* GetRes() const { return nullptr; }
-  virtual void Handle(void*) {}
-  virtual void* Handle() const { return nullptr; }
-  virtual PSIZE Size() const { return nullptr; }
-  virtual PRECT SizeBox() const { return nullptr; }
-  virtual PRECT Caption() const { return nullptr; }
-  virtual PSIZE RoundCorner() const { return nullptr; }
-  virtual PSIZE Mininfo() const { return nullptr; }
-  virtual PSIZE Maxinfo() const { return nullptr; }
-  virtual PSIZE BorderRound() const { return nullptr; }
-  virtual PPOINT Pos() const { return nullptr; }
-  virtual TypeArgbType BkColor() const { return 0; }
-  virtual TypeArgbType BorderColor() const { return 0; }
-  virtual ARGB BkColorArgb() const { return ARGB(); }
-  virtual ARGB BorderColorArgb() const { return ARGB(); }
-  virtual int BorderSize() const { return 0; }
-  virtual int Width() const { return 0; }
-  virtual int Height() const { return 0; }
-  virtual const IStrings* Name() const { return nullptr; }
-  virtual const IStrings* BkImage() const { return nullptr; }
-  virtual void BkImage(const tfCacheCb&) const {}
-  virtual const IStrings* Text() const { return nullptr; }
-  virtual bool Visible() const { return false; }
-  virtual const IStrings* LogoPathname() const { return nullptr; }
-  virtual void Logo(const tfCacheCb&) const {}
-  virtual HICON LogoIcon() const { return nullptr; }
-  virtual float Rounding() const { return 0.0f; }
-  virtual bool Floating() const { return false; }
-  virtual float Alpha() const { return 0.0f; }
-  virtual const IStrings* FontFilePathname() const { return nullptr; }
-  virtual float Pixels() const { return 0.0f; }
-  virtual bool Bold() const { return false; }
-  virtual void FontCache(const tfCacheCb&) const {}
-  virtual TypeIdentifyType FontIdentify() const { return 0; }
-  virtual void FontHandle(void*) {}
-  virtual void* FontHandle() const { return nullptr; }
-  virtual void Route(void*) {}
-  virtual void* Route() const { return nullptr; }
-  virtual bool FlagInitialization() const { return false; }
-  virtual void FlagInitialization(const bool&) {}
-  virtual const IStrings* ClassName() const { return nullptr; }
-  virtual LayoutType Layout() const { return LayoutType::Floating; }
- };
-
- class IWindow : public INodeRender {
- public:
-
- };
-
- class IControl : public INodeRender {
- public:
-
- };
-
- class IContainer : public IControl {
- public:
-
- };
-
- class IVerticalLayout : public IControl {
- public:
-
- };
-
- class IHorizontalLayout : public IControl {
- public:
-
- };
-
- class ITileLayout : public IContainer {
- public:
-
- };
-
- class ITabLayout : public IContainer {
- public:
-
- };
-
- class ICombo : public IContainer {
- public:
-
- };
-
- class ILabel : public IControl {
- public:
-
- };
-
- class IButton : public ILabel {
- public:
-
- };
-
- class IOption : public IButton {
- public:
-
- };
-
- class IText : public ILabel {
- public:
-
- };
-
- class IProgress : public ILabel {
- public:
-
- };
-
- class ISlider : public IProgress {
- public:
-
- };
-
- class IEdit : public ILabel {
- public:
-
- };
-
- class IScrollBar : public IControl {
- public:
-
- };
-
- class IList : public IVerticalLayout {
- public:
-
- };
-
- class IListHeader : public IHorizontalLayout {
- public:
-
- };
-
- class IListHeaderItem : public IControl {
- public:
-
- };
-
- class IListLabelElement : public IControl {
- public:
-
- };
-
- class IListTextElement : public IListLabelElement {
- public:
-
- };
-
- class IListContainerElement : public IContainer {
- public:
-
- };
-
- class IRichEdit : public IContainer {
- public:
-
- };
-
- class ITreeView : public IList {
- public:
-
- };
-
- class ITreeNode : public IListContainerElement {
- public:
-
+  virtual void Push(IResource*) = 0;
+  virtual void Pop(const TypeIdentify&) = 0;
+  virtual void Clear() = 0;
+  virtual IResource* Search(const TypeIdentify&) const = 0;
  };
 
  class ISkinUI {
  public:
   virtual bool Start() = 0;
   virtual void Stop() = 0;
-  virtual void Center() const = 0;
-  virtual bool Skin(const char*) = 0;
+  virtual bool SkinCreate(const char*) = 0;
+  virtual void SkinDestroy() = 0;
   virtual void Release() const = 0;
   virtual class ISkin* SkinGet() const = 0;
   virtual shared::IUIConfig* UIConfigGet() const = 0;
-  virtual void Render() = 0;
-  virtual bool CreateMainWindow() = 0;
+  virtual IControlUI* CreateControl(const ControlType&) = 0;
  };
 
  class ISkin : public shared::InterfaceDll<ISkin> {
@@ -313,18 +277,11 @@ namespace skin {
   virtual void Release() const = 0;
   virtual bool Perform() = 0;
   virtual void Render() = 0;
-  virtual void From(ISkinUI*) = 0;
-  virtual bool From(const char* skin_directory) = 0;
-  virtual INodeRender* MainNode() const = 0;
-  virtual void NodeIterator(const tfNodeBeginCb&, const tfNodeEndCb&) const = 0;
-  virtual void FontNodeIterator(const tfNodeCb&) const = 0;
-  virtual void RegisterNodeCreateCb(const tfNodeCreateCb&) = 0;
-  virtual void RegisterNodeDestroyCb(const tfNodeCreateCb&) = 0;
-  virtual void ParserArgb(const TypeArgbType&, std::uint8_t&, std::uint8_t&, std::uint8_t&, std::uint8_t&) const = 0;
+  virtual void Layout() = 0;
+  virtual bool Ready() const = 0;
+  virtual void SetUIModule(ISkinUI*) = 0;
+  virtual bool SkinConfigure(const char*) = 0;
  };
-
-
-
 
 }///namespace skin
 

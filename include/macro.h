@@ -16,6 +16,7 @@ api_object_uninit(void)\
 #define SK_HEAP_ALLOC(x) ::HeapAlloc(::GetProcessHeap(), 0, (x))
 #define SK_HEAP_FREE(x) {if(x)::HeapFree(::GetProcessHeap(), 0, (x));x=NULL;}
 
+#define SK_SHARE_LOCK(pmtx) std::lock_guard<std::mutex>(*pmtx);
 
 #define SK_CLASS_NEW(name) Class##name * temp = new Class#name();
 #define SK_CLASS_MALLOC(name,outptr) auto p = new name(); outptr= reinterpret_cast<long long>(p);
@@ -30,7 +31,9 @@ api_object_uninit(void)\
 #define SK_DESTROY_ICON(icon) {if (icon) { ::DestroyIcon(icon); icon = nullptr;}}
 #define SK_COM_RELEASE(p) { if(p) { (p)->Release(); (p)=nullptr; } }
 #define SK_RELEASE_PTR(p){if (p) { p->Release(); p = nullptr;}}
-
+#define SK_COLOR_ARGB(a,r,g,b) \
+    ((DWORD)((((a)&0xff)<<24)|(((r)&0xff)<<16)|(((g)&0xff)<<8)|((b)&0xff)))
+#define SK_RELEASE_EVENT(h) {if (h) { ::SetEvent(h); SK_CLOSE_HANDLE(h);}}
 //!@ Compatible with JSON
 #define SK_FUNCTION __FUNCTION__
 #define SK_FUNCTIONW __FUNCTIONW__

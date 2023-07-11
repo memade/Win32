@@ -6,36 +6,39 @@ namespace local {
  static bool show_another_window = false;
  static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
- OpenGL2GlutDrive::OpenGL2GlutDrive(const IDearImGui* host) : IDrive(host) {
+ OpenGL2GlutDrive::OpenGL2GlutDrive(const IDearImGui* host, const Control* ui_ctrl) : IDrive(host, ui_ctrl) {
 
  }
  OpenGL2GlutDrive::~OpenGL2GlutDrive() {
 
  }
+ void OpenGL2GlutDrive::Destroy() {
+  ImGui_ImplOpenGL2_Shutdown();
+  ImGui_ImplGLUT_Shutdown();
+  ImGui::DestroyContext();
+ }
+ bool OpenGL2GlutDrive::Create() {
+  bool result = false;
+  do {
+   // Create GLUT window
+   glutInit(&__argc, __argv);
+   glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);
+   glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_MULTISAMPLE);
+   //glutInitWindowSize(m_Size.GetCX(), m_Size.GetCY());
+   if (1 != glutCreateWindow("Dear ImGui GLUT+OpenGL2 Example"))
+    break;
+   glutReshapeWindow(m_Size.GetCX(), m_Size.GetCY());
+   CreateNotify();
+   result = true;
+  } while (0);
+  return result;
+ }
  void OpenGL2GlutDrive::Release() const {
   delete this;
  }
- bool OpenGL2GlutDrive::Start() {
-  do {
-   if (m_IsOpen.load())
-    break;
-   m_IsOpen.store(true);
-   m_Threads.emplace_back([this]() {Process(); });
-  } while (0);
-  return m_IsOpen.load();
- }
- void OpenGL2GlutDrive::Stop() {
-  do {
-   if (!m_IsOpen.load())
-    break;
-   m_IsOpen.store(false);
-   for (auto& t : m_Threads)
-    t.join();
-   m_Threads.clear();
-  } while (0);
- }
 
  void OpenGL2GlutDrive::Process() {
+#if 0
   // Create GLUT window
   glutInit(&__argc, __argv);
   glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);
@@ -43,11 +46,14 @@ namespace local {
   glutInitWindowSize(1024, 768);
   if (1 != glutCreateWindow("Dear ImGui GLUT+OpenGL2 Example"))
    return;
+#else
+  if (!Create())
+   return;
+#endif
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
-  auto& io = ImGui::GetIO();
-  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+  ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
   // Setup Dear ImGui style
   ImGui::StyleColorsDark();
   //ImGui::StyleColorsLight();
@@ -56,13 +62,16 @@ namespace local {
   ImGui_ImplGLUT_Init();
   ImGui_ImplOpenGL2_Init();
   ImGui_ImplGLUT_InstallFuncs();
-
+  ImGui::GetIO().UserData = this;
   glutDisplayFunc(
    []() {
+    OpenGL2GlutDrive* pThis = reinterpret_cast<OpenGL2GlutDrive*>(ImGui::GetIO().UserData);
     ImGui_ImplOpenGL2_NewFrame();
     ImGui_ImplGLUT_NewFrame();
     ImGui::NewFrame();
-
+#if 1
+    pThis->OnRender();
+#else
     if (show_demo_window)
      ImGui::ShowDemoWindow(&show_demo_window);
     {
@@ -88,11 +97,19 @@ namespace local {
       show_another_window = false;
      ImGui::End();
     }
+#endif
+    ImGui::EndFrame();
     // Rendering
     ImGui::Render();
     ImGuiIO& io = ImGui::GetIO();
+    void* udata = ImGui::GetIO().UserData;
     glViewport(0, 0, (GLsizei)io.DisplaySize.x, (GLsizei)io.DisplaySize.y);
-    glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
+    //m_pd3dDevice->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, static_cast<D3DCOLOR>(m_dwMainBkColor), 1.0f, 0);
+    glClearColor(
+     pThis->m_rgbaMainBkColor.x * pThis->m_rgbaMainBkColor.w,
+     pThis->m_rgbaMainBkColor.y * pThis->m_rgbaMainBkColor.w,
+     pThis->m_rgbaMainBkColor.z * pThis->m_rgbaMainBkColor.w,
+     pThis->m_rgbaMainBkColor.w);
     glClear(GL_COLOR_BUFFER_BIT);
     //glUseProgram(0); // You may want this if using this code in an OpenGL 3+ context where shaders may be bound, but prefer using the GL3+ code.
     ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
@@ -100,11 +117,17 @@ namespace local {
     glutPostRedisplay();
    });
 
+  glutReshapeFunc(
+   [](int width, int height) {
+    ImGui::GetIO().DisplaySize.x = width;
+    ImGui::GetIO().DisplaySize.y = height;
+    OpenGL2GlutDrive* pThis = reinterpret_cast<OpenGL2GlutDrive*>(ImGui::GetIO().UserData);
+    pThis->SetSize(Vec2(width, height));
+   });
+
   glutMainLoop();
 
-  ImGui_ImplOpenGL2_Shutdown();
-  ImGui_ImplGLUT_Shutdown();
-  ImGui::DestroyContext();
+  Destroy();
  }
 
 

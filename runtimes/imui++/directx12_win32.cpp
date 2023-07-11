@@ -9,31 +9,48 @@ static bool show_another_window = false;
 static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 namespace local {
- Directx12Drive::Directx12Drive(const IDearImGui* host) : IDrive(host) {
-
+ Directx12Drive::Directx12Drive(const IDearImGui* host, const Control* ui_ctrl) : IDrive(host, ui_ctrl) {
+  m_WndClassEx.lpfnWndProc = Directx12Drive::WindowProc;
+  m_WndCreateStructW.lpCreateParams = this;
  }
 
  Directx12Drive::~Directx12Drive() {
 
  }
-
- bool Directx12Drive::Start() {
+ bool Directx12Drive::Create() {
+  bool result = false;
   do {
-   if (m_IsOpen.load())
+   void(::RegisterClassExW(&m_WndClassEx));
+   m_hWnd = ::CreateWindowW(
+    m_WndCreateStructW.lpszClass,
+    m_WndCreateStructW.lpszName,
+    m_WndCreateStructW.style,
+    m_WndCreateStructW.cx,
+    m_WndCreateStructW.cy,
+    m_WndCreateStructW.x,
+    m_WndCreateStructW.y,
+    m_WndCreateStructW.hwndParent,
+    m_WndCreateStructW.hMenu,
+    m_WndCreateStructW.hInstance,
+    m_WndCreateStructW.lpCreateParams);
+   if (!m_hWnd)
     break;
-   m_IsOpen.store(true);
-   m_Threads.emplace_back([this]() {Process(); });
+   ::ShowWindow(m_hWnd, SW_HIDE);
+   ::UpdateWindow(m_hWnd);
+   result = true;
   } while (0);
-  return m_IsOpen.load();
+  CreateNotify();
+  return result;
  }
- void Directx12Drive::Stop() {
+ void Directx12Drive::Destroy() {
   do {
-   if (!m_IsOpen.load())
-    break;
-   m_IsOpen.store(false);
-   for (auto& t : m_Threads)
-    t.join();
-   m_Threads.clear();
+   WaitForLastSubmittedFrame();
+   ImGui_ImplDX12_Shutdown();
+   ImGui_ImplWin32_Shutdown();
+   ImGui::DestroyContext();
+   CleanupDeviceD3D();
+   ::DestroyWindow(m_hWnd);
+   ::UnregisterClassW(m_WndClassEx.lpszClassName, m_WndClassEx.hInstance);
   } while (0);
  }
  void Directx12Drive::Release() const {
@@ -241,17 +258,6 @@ namespace local {
    if (!_pThis)
     break;
 
-   do {
-    HWND parentWnd = GetParent(hWnd);
-    if (!parentWnd)
-     break;
-    RECT parentRect;
-    GetClientRect(parentWnd, &parentRect);
-    int parentWidth = parentRect.right - parentRect.left;
-    int parentHeight = parentRect.bottom - parentRect.top;
-    MoveWindow(hWnd, 0, 0, parentWidth, parentHeight, TRUE);
-   } while (0);
-
    if (!_pThis->m_pD3D12Device)
     break;
    if (wParam == SIZE_MINIMIZED)
@@ -269,6 +275,7 @@ namespace local {
    if (!SUCCEEDED(result))
     break;
    _pThis->CreateRenderTarget();
+   _pThis->SetSize(Vec2(LOWORD(lParam), HIWORD(lParam)));
    return 0;
   }break;
   case WM_SYSCOMMAND: {
@@ -288,60 +295,16 @@ namespace local {
  }
 
  void Directx12Drive::Process() {
-  m_WndClassEx.cbSize = sizeof(m_WndClassEx);
-  m_WndClassEx.style = CS_CLASSDC;
-  m_WndClassEx.lpfnWndProc = WindowProc;
-  m_WndClassEx.cbClsExtra = 0L;
-  m_WndClassEx.cbWndExtra = 0L;
-  m_WndClassEx.hInstance = __gpHinstance;
-  m_WndClassEx.hIcon = NULL;
-  m_WndClassEx.hCursor = NULL;
-  m_WndClassEx.hbrBackground = NULL;
-  m_WndClassEx.lpszMenuName = NULL;
-  m_WndClassEx.lpszClassName = L"ImGui®";
-  m_WndClassEx.hIconSm = NULL;
-  // Create application window
-  ImGui_ImplWin32_EnableDpiAwareness();
-  void(::RegisterClassExW(&m_WndClassEx));
-  //CreateWindowExW(0L, lpClassName, lpWindowName, dwStyle, x, y, \
-     // nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam)
-  DWORD dwExStyle = 0;
-  LPCWSTR lpClassName = m_WndClassEx.lpszClassName;
-  LPCWSTR lpWindowName = L"Dear ImGui DirectX12 Example";
-  DWORD dwStyle = WS_OVERLAPPEDWINDOW;
-  int X = 0;
-  int Y = 0;
-  int nWidth = 1280;
-  int nHeight = 800;
-  HWND hWndParent = nullptr/*_This->ConfigGet()->Parent()*/;
-  HMENU hMenu = NULL;
-  HINSTANCE hInstance = m_WndClassEx.hInstance;
-  LPVOID lpParam = this;
-#if 0
-  __this->OnCreateWindow(dwExStyle, lpClassName, lpWindowName, dwStyle, X, Y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam);
-#endif
-  m_hWnd = ::CreateWindowExW(
-   dwExStyle,
-   lpClassName,
-   lpWindowName,
-   dwStyle,
-   X,
-   Y,
-   nWidth,
-   nHeight,
-   hWndParent,
-   hMenu,
-   hInstance,
-   this);
-  if (!m_hWnd)
+  //  ImGui_ImplWin32_EnableDpiAwareness();
+  if (!Create())
    return;
+
   if (!CreateDeviceD3D(m_hWnd)) {
    CleanupDeviceD3D();
    ::UnregisterClassW(m_WndClassEx.lpszClassName, m_WndClassEx.hInstance);
    return;
   }
-  ::ShowWindow(m_hWnd, SW_SHOWDEFAULT);
-  ::UpdateWindow(m_hWnd);
+
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -440,8 +403,7 @@ namespace local {
     ImGui::End();
    }
 #endif
-   Renderer();
-
+   OnRender();
 
    // Rendering
    ImGui::Render();
@@ -475,14 +437,7 @@ namespace local {
    m_nFenceLastSignaledValue = fenceValue;
    frameCtx->FenceValue = fenceValue;
   }
-
-  WaitForLastSubmittedFrame();
-  ImGui_ImplDX12_Shutdown();
-  ImGui_ImplWin32_Shutdown();
-  ImGui::DestroyContext();
-  CleanupDeviceD3D();
-  ::DestroyWindow(m_hWnd);
-  ::UnregisterClassW(m_WndClassEx.lpszClassName, m_WndClassEx.hInstance);
+  Destroy();
  }
 }///namespace local
 #endif

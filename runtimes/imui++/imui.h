@@ -10,19 +10,16 @@ namespace local {
   virtual ~DearImGui();
  protected:
   void Release() const override final;
-  bool Skin(const char*) override final;
+  bool SkinCreate(const char*) override final;
+  void SkinDestroy() override final;
   class ISkin* SkinGet() const override final;
   bool Start() override final;
   void Stop() override final;
-  void Center() const override final;
- protected:
-  void Render() override final;
-  bool CreateMainWindow() override final;
+  IControlUI* CreateControl(const ControlType&) override final;
  public:
   shared::IUIConfig* UIConfigGet() const override final;
   void NotifyUICreateSuccess() const;
  private:
-  IDrive* m_pDrive = nullptr;
   ISkin* m_pSkin = nullptr;
   shared::IUIConfig* m_pConfig = nullptr;
  public:

@@ -1,7 +1,7 @@
 #include <win.hpp>
 
-#define ENABLE_IMUI 1
 #define ENABLE_WXUI 0
+#define ENABLE_IMUI 1
 
 #if ENABLE_WXUI
 #include <wxui.hpp>
@@ -16,18 +16,14 @@ int main(int argc, char** argv) {
 #endif
 
 #if ENABLE_IMUI
- skin::ISkinUI* pImui = imui::IDearImGui::CreateInterface(R"(D:\__Github__\Win32\libs\runtimes\x64\Debug\imui++.dll)");
- pImui->Skin(R"(D:\__Github__\Win32\libs\runtimes\x64\Debug\skin\)");
-
- auto config = pImui->UIConfigGet();
- config->EnableDpiAwareness(true);
-
- pImui->Start();
+ skin::ISkinUI* pDearImGui = imui::IDearImGui::CreateInterface(R"(D:\__Github__\Win32\libs\runtimes\x64\Debug\imui++.dll)");
+ pDearImGui->SkinCreate(R"(D:\__Github__\Win32\libs\runtimes\x64\Debug\skin\main.xml)");
+ pDearImGui->Start();
 #endif
 
 #if ENABLE_WXUI
  skin::ISkinUI* pWxui = wxui::IWxui::CreateInterface(R"(D:\__Github__\Win32\libs\runtimes\x64\Debug\wxui++.dll)");
- pWxui->Skin(R"(D:\__Github__\Win32\libs\runtimes\x64\Debug\skin\)");
+ pWxui->SkinCreate(R"(D:\__Github__\Win32\libs\runtimes\x64\Debug\skin\main.xml)");
  pWxui->Start();
 #endif
 
@@ -36,8 +32,8 @@ int main(int argc, char** argv) {
   [&](const std::string& input, bool& exit) {
    if (input == "q") {
 #if ENABLE_IMUI
-    pImui->Stop();
-    auto p = dynamic_cast<imui::IDearImGui*>(pImui);
+    pDearImGui->Stop();
+    auto p = dynamic_cast<imui::IDearImGui*>(pDearImGui);
     imui::IDearImGui::DestoryInterface(p);
 #endif
 

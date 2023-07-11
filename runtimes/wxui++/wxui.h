@@ -57,12 +57,11 @@ namespace local {
  public:
   bool Start() override final;
   void Stop() override final;
-  bool Skin(const char*) override final;
+  bool SkinCreate(const char*) override final;
+  void SkinDestroy() override final;
   void Release() const override final;
-  IFrame* CreateFrame(IControl*) override final;
-  ITreeCtrl* CreateTreeCtrl(IControl*) override final;
-  ITreeList* CreateTreeList(IControl*) override final;
- private:
+  IControlUI* CreateControl(const ControlType&) override final;
+ public:
   ISkin* SkinGet() const override final;
   shared::IUIConfig* UIConfigGet() const override final;
  private:
@@ -72,7 +71,6 @@ namespace local {
   HANDLE m_hMain = nullptr;
   std::atomic_bool m_IsOpen = false;
   ISkin* m_pSkin = nullptr;
-  IFrame* m_pFrame = nullptr;
   shared::IUIConfig* m_pConfig = nullptr;
  };
 

@@ -7,6 +7,9 @@
 using namespace skin;
 
 #include "strings.h"
+#include "cache.h"
+#include "attribute.h"
+#include "font.h"
 #include "resources.h"
 #include "control.h"
 #include "parser.h"

@@ -8,16 +8,20 @@
 namespace local {
 
 
- class OpenGL2GlfwDrive final : public IDrive {
+ class OpenGL2GlfwDrive : public IDrive {
  public:
-  OpenGL2GlfwDrive(const IDearImGui*);
+  OpenGL2GlfwDrive(const IDearImGui*, const Control*);
   virtual ~OpenGL2GlfwDrive();
  public:
-  bool Start() override final;
-  void Stop() override final;
-  void Release() const override final;
-  void Process() override final;
+  bool Start() override;
+  void Stop() override;
+  void Release() const override;
+  void Process() override;
+ protected:
+  bool Create() override;
+  void Destroy() override;
  private:
+  GLFWwindow* m_pGLFWWindow = nullptr;
   std::atomic_bool m_IsOpen = false;
  };
 

@@ -8,217 +8,384 @@ namespace local {
   UnInit();
  }
  void Skin::Init() {
-
+  m_pResources = dynamic_cast<IResources*>(new Resources());
  }
  void Skin::UnInit() {
   m_IsOpen.store(false);
-  for (auto& t : m_Threads)
-   t.join();
-  m_Threads.clear();
-  for (const auto& node : m_Nodes) {
-   OnNodeDestroy(node);
-   node->Release();
+
+  if (!m_Controls.empty() && m_Controls[0]->Bind())
+   dynamic_cast<IControlUI*>(m_Controls[0]->Bind())->OnRenderEnd();
+
+  for (auto rit = m_Controls.rbegin(); rit != m_Controls.rend(); ++rit) {
+   if ((*rit)->Bind())
+    (*rit)->Bind()->Release();
+   (*rit)->Release();
   }
-  m_Nodes.clear();
-  for (const auto& node : m_ResNodes)
-   node.second->Release();
-  m_ResNodes.clear();
+
+  m_Controls.clear();
+
+  SK_RELEASE_PTR(m_pResources);
  }
  void Skin::Release() const {
   delete this;
  }
- void Skin::From(ISkinUI* pUI) {
+ void Skin::SetUIModule(ISkinUI* pUI) {
   std::lock_guard<std::mutex> lock{*m_Mutex};
   m_pUI = pUI;
  }
- bool Skin::From(const char* skin_directory) {
+ bool Skin::SkinConfigure(const char* skin_file_pathanme) {
   bool result = false;
   std::lock_guard<std::mutex> lock{*m_Mutex};
   do {
-   if (!skin_directory)
+   if (!skin_file_pathanme)
     break;
-   m_SkinDirectory = shared::Win::PathFixedA(skin_directory);
-   if (!shared::Win::AccessA(m_SkinDirectory))
+   m_SkinFileName = shared::Win::PathFixedA(skin_file_pathanme);
+   m_SkinDirectory = shared::Win::GetPathByPathnameA(m_SkinFileName);
+   if (!shared::Win::AccessA(m_SkinDirectory) || !shared::Win::AccessA(m_SkinFileName))
     break;
-   tfEnumFolderNode dirs, files;
-   //!@ 枚举skin xml 配置文件
-   shared::Win::EnumFoldersAndFiles(m_SkinDirectory, dirs, files, "*.*", true,
-    [&](const std::string& f_path, const std::string& f_name, const _finddata_t& find_data) {
-     std::string name, format;
-     shared::Win::GetFileNameAndFormat(f_name, name, format);
-     IResources* pRes = nullptr;
-     if (StrStrIA(".xml", format.c_str())) {
-      pRes = dynamic_cast<IResources*>(new ResourcesConfigXml());
-     }
-     if (StrStrIA(".json", format.c_str())) {
-      pRes = dynamic_cast<IResources*>(new ResourcesConfigJson());
-     }
-     else if (StrStrIA(".ico", format.c_str())) {
-      pRes = dynamic_cast<IResources*>(new ResourcesImageIcon());
-     }
-     else if (StrStrIA(".ttf", format.c_str())) {
-      pRes = dynamic_cast<IResources*>(new ResourcesFontTTF());
-     }
-     else if (StrStrIA(".ttc", format.c_str())) {
-      pRes = dynamic_cast<IResources*>(new ResourcesFontTTC);
-     }
-     if (pRes) {
-      pRes->Pathname(shared::Win::PathFixedA(m_SkinDirectory + "\\" + f_path).c_str());
-      pRes->Path(shared::Win::GetPathByPathnameA(pRes->Pathname()).c_str());
-      pRes->Load();
-      m_ResNodes.emplace(pRes->Pathname(), pRes);
-     }
-    });
+   m_SkinFileBuffer = shared::Win::File::ReadCXX(m_SkinFileName);
+   if (m_SkinFileBuffer.empty())
+    break;
    result = true;
   } while (0);
   return result;
  }
- void Skin::OnNodeCreate(INodeRender* pINode) const {
-  if (m_NodeCreateCb)
-   m_NodeCreateCb(pINode);
- }
- void Skin::OnNodeDestroy(INodeRender* pINode) const {
-  if (m_NodeDestroyCb)
-   m_NodeDestroyCb(pINode);
- }
- void Skin::RegisterNodeCreateCb(const tfNodeCreateCb& create_cb) {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  m_NodeCreateCb = create_cb;
- }
- void Skin::RegisterNodeDestroyCb(const tfNodeDestroyCb& destroy_cb) {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  m_NodeDestroyCb = destroy_cb;
- }
- void Skin::ParserArgb(const TypeArgbType& input_argb, std::uint8_t& r, std::uint8_t& g, std::uint8_t& b, std::uint8_t& a) const {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  Parser::parser_rgba(input_argb, r, g, b, a);
- }
- static void TraverseNodeIterator(INodeRender* pINode, const tfNodeBeginCb& begin_cb, const tfNodeEndCb& end_cb) {
-  do {
-   auto pNode = dynamic_cast<const NodeRender*>(pINode);
-   if (!pNode)
-    break;
-   begin_cb(pINode);
-   auto nodes = pNode->Childs();
-   if (nodes.empty())
-    break;
-   bool end = false;
-   for (auto& node : nodes) {
-    TraverseNodeIterator(node, begin_cb, end_cb);
-    end_cb(node);
-    end = true;
-   }
-   if (!end)
-    end_cb(pINode);
-   auto sksksk = 0;
-  } while (0);
- }
- INodeRender* Skin::MainNode() const {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  return m_pMainNode;
- }
- void Skin::FontNodeIterator(const tfNodeCb& node_cb) const {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  for (auto& node : m_Nodes) {
-   if (node->GetType() != ControlType::Font)
-    continue;
-   node_cb(node);
-  }
- }
- void Skin::NodeIterator(const tfNodeBeginCb& begin_cb, const tfNodeDestroyCb& end_cb) const {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  if (m_pMainNode) {
-   TraverseNodeIterator(m_pMainNode, begin_cb, end_cb);
-   end_cb(m_pMainNode);
-  }
- }
  bool Skin::Perform() {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
+  std::unique_lock<std::mutex> lock{*m_Mutex, std::defer_lock};
+  lock.lock();
   do {
    if (m_IsOpen.load())
     break;
    if (!m_pUI)
     break;
+   if (m_SkinFileBuffer.empty())
+    break;
 
-   for (auto& node : m_ResNodes) {
-    switch (node.second->Type()) {
-    case ResourcesType::CONFIG_XML: {
-     if (!node.second->Load())
+   TypeIdentify id = 0;
+   if (!Parser::parser_xml(m_SkinFileBuffer,
+    [this, &id](const NodeType& node_type, const std::uintptr_t& parent_node_key, const std::uintptr_t& node_key, const std::map<AttributeType, String>& attribute_s) {
+     Control* control = nullptr;
+     switch (node_type) {
+      ////////////////////////////////////////////////////////////////////////////////////////
+     case NodeType::Window: {
+      control = dynamic_cast<Control*>(new Window());
+      *control << attribute_s;
+      m_Controls.emplace_back(control);
+     }break;
+     case NodeType::Frame: {
+      control = dynamic_cast<Control*>(new Frame());
+      *control << attribute_s;
+      m_Controls.emplace_back(control);
+     }break;
+     case NodeType::VerticalLayout: {
+      control = dynamic_cast<Control*>(new VerticalLayout());
+      *control << attribute_s;
+      m_Controls.emplace_back(control);
+     }break;
+     case NodeType::HorizontalLayout: {
+      control = dynamic_cast<Control*>(new HorizontalLayout());
+      *control << attribute_s;
+      m_Controls.emplace_back(control);
+     }break;
+     case NodeType::Button: {
+      control = dynamic_cast<Control*>(new Button());
+      *control << attribute_s;
+      m_Controls.emplace_back(control);
+     }break;
+      ////////////////////////////////////////////////////////////////////////////////////////
+     case NodeType::Resources: {
+
+     }break;
+     case NodeType::Font: {
+      control = dynamic_cast<Control*>(new Font(m_SkinDirectory));
+      *control << attribute_s;
+      m_pResources->Push(control);
+     }break;
+     case NodeType::Image: {
+      control = dynamic_cast<Control*>(new Image(m_SkinDirectory));
+      *control << attribute_s;
+      m_pResources->Push(control);
+     }break;
+     case NodeType::UserData: {
+      control = dynamic_cast<Control*>(new UserData(m_SkinDirectory));
+      *control << attribute_s;
+      m_pResources->Push(control);
+     }break;
+     default:
       break;
-     TypeIdentifyType identify = 0;
-     if (!Parser::parser_xml(node.second,
-      [this, &identify](const IResources* pRes, const ControlType& control_type) {
-       INodeRender* result = nullptr;
-       switch (control_type) {
-       case ControlType::Window:
-        result = m_Nodes.emplace_back(dynamic_cast<INodeRender*>(new Window(identify++, pRes)));
-        break;
-       case ControlType::Frame:
-        result = m_Nodes.emplace_back(dynamic_cast<INodeRender*>(new Frame(identify++, pRes)));
-        break;
-       case ControlType::Control:
-        result = m_Nodes.emplace_back(dynamic_cast<INodeRender*>(new Control(identify++, pRes)));
-        break;
-       case ControlType::Container:
-        result = m_Nodes.emplace_back(dynamic_cast<INodeRender*>(new Container(identify++, pRes)));
-        break;
-       case ControlType::Label:
-        result = m_Nodes.emplace_back(dynamic_cast<INodeRender*>(new Label(identify++, pRes)));
-        break;
-       case ControlType::Button:
-        result = m_Nodes.emplace_back(dynamic_cast<INodeRender*>(new Button(identify++, pRes)));
-        break;
-       case ControlType::HorizontalLayout:
-        result = m_Nodes.emplace_back(dynamic_cast<INodeRender*>(new HorizontalLayout(identify++, pRes)));
-        break;
-       case ControlType::VerticalLayout:
-        result = m_Nodes.emplace_back(dynamic_cast<INodeRender*>(new VerticalLayout(identify++, pRes)));
-        break;
-       case ControlType::TabLayout:
-        result = m_Nodes.emplace_back(dynamic_cast<INodeRender*>(new TabLayout(identify++, pRes)));
-        break;
-       case ControlType::Font:
-        result = m_Nodes.emplace_back(dynamic_cast<INodeRender*>(new Font(identify++, pRes)));
-        break;
+     }
+
+     if (control) {
+      control->Identify(id++);
+      control->ParentNodeKey(parent_node_key);
+      control->NodeKey(node_key);
+     }
+    }))
+    break;
+
+    // 1. Configure the parent class for controls.
+    // 2. Configure child controls.
+    // 3. Synchronization identify.
+    // 4. Synchronization attributes.
+    // 5. Configure ref resource cache.
+    for (auto pControlSK : m_Controls) {
+     do {
+      auto pControlSKAttributes = pControlSK->GetAttributes();
+      if (!pControlSKAttributes)
+       break;
+      pControlSKAttributes->Iterator(
+       [this](const AttributeType& type, IAttribute* att, bool& itbreak) {
+        switch (type) {
+        case AttributeType::floating: {
+         if (!att->GetBool())
+          break;
+        }break;
+        case AttributeType::bkimage:
+         [[fallthrough]];
+        case AttributeType::logo: {
+         auto res = m_pResources->Search(att->GetIdentify());
+         if (!res)
+          break;
+         att->ResourceRef(res);
+        }break;
+        default:
+         break;
+        }
+
+       });
+     } while (0);
+
+     IControlUI* pControlUI = nullptr;
+     do {// Bind conctrl
+      pControlUI = m_pUI->CreateControl(pControlSK->GetControlType());
+      if (!pControlUI)
+       break;
+      pControlUI->Identify(pControlSK->Identify());
+      pControlUI->Bind(pControlSK);
+      pControlSK->Bind(pControlUI);
+      pControlUI->SetAttributes(pControlSK->GetAttributes());
+     } while (0);
+
+     if (pControlSK->ParentNodeKey() <= 0)
+      continue;
+
+     // Find the parent node for the current control.
+     for (auto& it : m_Controls) {
+      if (pControlSK->ParentNodeKey() == it->NodeKey()) {
+       // Set 'control' as a child of 'it' and 'it' as the parent of 'control'.
+       it->PushChild(dynamic_cast<IControl*>(pControlSK));
+       pControlSK->Parent(dynamic_cast<IControl*>(it));
+       if (pControlUI)
+        pControlUI->Parent(it->Bind());
+       break;
+      }
+     }
+
+
+
+    }
+    m_IsOpen.store(true);
+  } while (0);
+  lock.unlock();
+  //!@ Frist render.
+  //Render();
+  dynamic_cast<IControlUI*>(m_Controls[0]->Bind())->OnRenderBegin();
+  dynamic_cast<IControlUI*>(m_Controls[0]->Bind())->RenderingFlags(true);
+
+  return m_IsOpen.load();
+ }
+ bool Skin::Ready() const {
+  std::lock_guard<std::mutex>(*m_Mutex);
+  return m_IsOpen.load() && m_Ready.load();
+ }
+
+ static void TraverseRenderIterator(Control* pControl, const std::function<void(IControlSK*)>& begin_cb, const std::function<void(IControlSK*)>& end_cb) {
+  do {
+   if (!pControl)
+    break;
+   //!@ The main window does not render independently.
+   /*if (pControl->Parent())*/
+   begin_cb(pControl);
+   auto childs = pControl->Childs();
+   if (childs->Empty())
+    break;
+   bool end = false;
+   childs->Iterator(
+    [&](IControl* ctrl, bool& itbreak) {
+     TraverseRenderIterator(dynamic_cast<Control*>(ctrl), begin_cb, end_cb);
+     end_cb(dynamic_cast<IControlSK*>(ctrl));
+     end = true;
+    });
+   if (!end)
+    end_cb(dynamic_cast<IControlSK*>(pControl));
+  } while (0);
+ }
+
+ static void TraverseLayoutIterator(Control* pControl, const std::function<void(Control*, const IControls*)>& layout_cb) {
+  do {
+   if (!pControl)
+    break;
+   if (!layout_cb)
+    break;
+   auto child_s = pControl->Childs();
+   if (child_s->Empty())
+    break;
+   layout_cb(pControl, child_s);
+   child_s->Iterator(
+    [&](IControl* ctrl, bool& itbreak) {
+     TraverseLayoutIterator(dynamic_cast<Control*>(ctrl), layout_cb);
+    });
+  } while (0);
+ }
+ void Skin::Layout() {
+  std::unique_lock<std::mutex> lock(*m_Mutex, std::defer_lock);
+  lock.lock();
+  do {
+   if (!m_pUI)
+    break;
+   if (!m_Ready.load())
+    break;
+   if (m_Controls.empty())
+    break;
+
+   //!@ 配置控件布局
+   TraverseLayoutIterator(m_Controls[0],
+    [this](Control* parent, const IControls* child_s) {
+     const auto ParentSK = dynamic_cast<IControlSK*>(parent);
+     const auto ParentUI = dynamic_cast<IControlUI*>(parent->Bind());
+     const auto ParentLayout = ParentUI->GetLayoutData();
+     Vec2 ParentSize;
+     if (parent->GetControlType() == ControlType::Window)
+      ParentSize = ParentUI->GetSize();
+     else
+      ParentSize = ParentLayout->empty() ? ParentUI->GetSize() : ParentLayout->GetSize();
+     const auto LayoutCount = child_s->LayoutCount();
+     long LayoutCountRemain = LayoutCount;
+     //!@ 横向布局剩余空间
+     unsigned long HorizontalRemainCX = ParentSize.GetCX();
+     //!@ 竖向布局剩余空间
+     unsigned long VerticalLayoutRemainCY = ParentSize.GetCY();
+
+     if (parent->GetAttributes()->GetAttribute(AttributeType::name) && \
+      parent->GetAttributes()->GetAttribute(AttributeType::name)->GetString()->compare("v1")) {
+
+
+      auto sk = 0;
+     }
+
+     child_s->LayoutIterator(
+      [&](IControl* child, bool& itbreak) {
+       auto pChildSK = dynamic_cast<IControlSK*>(child);
+       auto pChildUI = dynamic_cast<IControlUI*>(child->Bind());
+       const Vec4 LayoutConifg(
+        pChildSK->GetPosition().GetX(),
+        pChildSK->GetPosition().GetY(),
+        pChildSK->GetSize().GetCX(),
+        pChildSK->GetSize().GetCY()
+       );
+
+       Vec4 LayoutFinal;
+       LayoutFinal.SetPosition(pChildSK->GetPosition());
+       LayoutFinal.SetSize(pChildSK->GetSize());
+
+       switch (parent->GetLayoutType()) {
+       case LayoutType::Vertical: {
+        if (LayoutCountRemain <= 0)
+         break;
+        LayoutFinal.SetX(parent->GetLayoutData()->GetPosition().x);
+        LayoutFinal.SetY(ParentSize.GetCY() - VerticalLayoutRemainCY);
+        LayoutFinal.SetCX(LayoutConifg.GetCX() > 0 ? LayoutConifg.GetCX() : ParentSize.GetCX());
+        if (LayoutFinal.GetCX() > ParentSize.GetCX())
+         LayoutFinal.SetCX(ParentSize.GetCX());
+
+        LayoutFinal.SetCY(LayoutConifg.GetCY() > 0 ? LayoutConifg.GetCY() : VerticalLayoutRemainCY / LayoutCountRemain);
+        if (LayoutFinal.GetCY() > ParentSize.GetCY())
+         LayoutFinal.SetCY(ParentSize.GetCY());
+
+        VerticalLayoutRemainCY -= LayoutFinal.GetCY();
+        --LayoutCountRemain;
+       }break;
+       case LayoutType::Horizontal: {
+        if (LayoutCountRemain <= 0)
+         break;
+        LayoutFinal.SetX(ParentSize.GetCX() - HorizontalRemainCX);
+        LayoutFinal.SetY(parent->GetLayoutData()->GetPosition().y);
+        LayoutFinal.SetCX(LayoutConifg.GetCX() > 0 ? LayoutConifg.GetCX() : HorizontalRemainCX / LayoutCountRemain);
+        if (LayoutFinal.GetCX() > ParentSize.GetCX())
+         LayoutFinal.SetCX(ParentSize.GetCX());
+
+        LayoutFinal.SetCY(LayoutConifg.GetCY() > 0 ? LayoutConifg.GetCY() : ParentSize.GetCY());
+        if (LayoutFinal.GetCY() > ParentSize.GetCY())
+         LayoutFinal.SetCY(ParentSize.GetCY());
+
+        HorizontalRemainCX -= LayoutFinal.GetCX();
+        --LayoutCountRemain;
+       } break;
+       case LayoutType::Floating:
+        [[fallthrough]];
        default:
         break;
        }
 
-       return result;
-      }, [this](INodeRender* pNodeCreateSuccess) {
-       pNodeCreateSuccess->DefaultConfigCover();
-       OnNodeCreate(pNodeCreateSuccess);
-      }))
-      break;
-      m_pMainNode = m_Nodes[0];
-    }break;
-    case ResourcesType::IMAGE_ICON_: {
+       if (LayoutFinal.GetCX() > 0 && LayoutFinal.GetCY() > 0)
+        pChildUI->SetLayoutData(LayoutFinal);
 
-     auto sk = 0;
-    }break;
-    default:
-     break;
-    }
-   }
+#if 0
+       const IString* pName = nullptr;
+       auto name = pChildSK->GetAttributes()->GetAttribute(AttributeType::name);
+       if (name)
+        pName = name->GetString();
+       if (pName)
+        std::cout << std::format("{} size is ({},{},{},{})", pName->str(), LayoutFinal.x, LayoutFinal.y, LayoutFinal.z, LayoutFinal.w) << std::endl;
+#endif
 
-
-   m_IsOpen.store(true);
-   m_Threads.emplace_back([this]() {Render(); });
+       pChildUI->OnLayout();
+      });
+    });
   } while (0);
-  return m_IsOpen.load();
+  lock.unlock();
  }
-
  void Skin::Render() {
   do {
-   do {
-    if (!m_pUI)
-     break;
-    m_pUI->Render();
-   } while (0);
-   if (!m_IsOpen.load())
+   if (!m_pUI)
     break;
-   std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  } while (1);
+   if (m_Controls.empty())
+    break;
+
+   std::unique_lock<std::mutex> lock(*m_Mutex, std::defer_lock);
+   lock.lock();
+
+   TraverseRenderIterator(m_Controls[0],
+    [this](IControlSK* pControlSK) {
+     auto pControlUI = dynamic_cast<IControlUI*>(pControlSK->Bind());
+     do {
+      if (!pControlUI)
+       break;
+      if (pControlUI->RenderingFlags())
+       break;
+      pControlUI->OnRenderBegin();
+      pControlUI->RenderingFlags(true);
+     } while (0);
+    },
+    [this](IControlSK* pControlSK) {
+     auto pControlUI = dynamic_cast<IControlUI*>(pControlSK->Bind());
+     do {
+      if (!pControlUI)
+       break;
+      if (!pControlUI->RenderingFlags())
+       break;
+      pControlUI->OnRenderEnd();
+      pControlUI->RenderingFlags(false);
+     } while (0);
+    });
+   if (!m_Ready.load())
+    m_Ready.store(true);
+   lock.unlock();
+
+   Layout();
+
+  } while (0);
+
  }
 
 

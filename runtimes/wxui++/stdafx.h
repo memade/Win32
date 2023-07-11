@@ -161,7 +161,7 @@ using namespace skin;
 
 
 #include "config.h"
-#include "wxcontrol.h"
+#include "control.h"
 #include "wxframeweb.h"
 #include "wxchild.h"
 #include "wxframe.h"

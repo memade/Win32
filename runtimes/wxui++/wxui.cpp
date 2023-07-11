@@ -20,82 +20,26 @@ namespace local {
   std::lock_guard<std::mutex> lock{*m_Mutex};
   return m_pConfig;
  }
- ITreeCtrl* Wxui::CreateTreeCtrl(IControl* info) {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  return nullptr;
- }
- ITreeList* Wxui::CreateTreeList(IControl* info) {
-  ITreeList* result = nullptr;
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  do {
-   if (!info)
-    break;
-   wxWindow* parent = nullptr;
-   if (info->Parent())
-    parent = reinterpret_cast<wxWindow*>(info->Parent()->Handle());
-   result = dynamic_cast<ITreeList*>(new TreeList(parent));
-
-  } while (0);
-  return result;
- }
- IFrame* Wxui::CreateFrame(IControl* info) {
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  do {
-   if (!info)
-    break;
-   switch (info->FrameTypeGet()) {
-   case FrameType::FRAME_MDI: {
-    m_pFrame = new MDIFrame(this);
-   }break;
-   case FrameType::FRAME_SDI: {
-    m_pFrame = new Frame(this);
-   }break;
-   default:
-    break;
-   }
-   if (!m_pFrame)
-    break;
-   info->Handle(reinterpret_cast<void*>(m_pFrame->Handle()));
-  } while (0);
-  return m_pFrame;
- }
-#if 0
- bool Wxui::CreateFrame(IFrame* config) {
-  bool result = false;
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  do {
-   if (!config)
-    break;
-   if (config->Type() == FrameType::SDI) {
-
-   }
-   else if (config->Type() == FrameType::MDI) {
-
-   }
-   else
-    break;
-   result = true;
-  } while (0);
-  return result;
- }
-#endif
  ISkin* Wxui::SkinGet() const {
   std::lock_guard<std::mutex> lock{*m_Mutex};
   return m_pSkin;
  }
- bool Wxui::Skin(const char* skin_directory) {
+ void Wxui::SkinDestroy() {
+  skin::ISkin::DestoryInterface(m_pSkin);
+ }
+ bool Wxui::SkinCreate(const char* skin_config_pathname) {
   bool result = false;
   std::lock_guard<std::mutex> lock{*m_Mutex};
   do {
-   if (!skin_directory)
+   if (!skin_config_pathname)
     break;
-   if (!shared::Win::AccessA(skin_directory))
+   if (!shared::Win::AccessA(skin_config_pathname))
     break;
    m_pSkin = skin::ISkin::CreateInterface(shared::Win::GetModulePathA(__gpHinstance) + R"(/skin++.dll)");
    if (!m_pSkin)
     break;
-   m_pSkin->From(dynamic_cast<ISkinUI*>(this));
-   if (!m_pSkin->From(skin_directory))
+   m_pSkin->SetUIModule(dynamic_cast<ISkinUI*>(this));
+   if (!m_pSkin->SkinConfigure(skin_config_pathname))
     break;
    result = true;
   } while (0);
@@ -114,7 +58,6 @@ namespace local {
     ::WaitForSingleObject(hMainCreate, INFINITE);
    SK_CLOSE_HANDLE(hMainCreate);
 
-
    m_IsOpen.store(true);
   } while (0);
   return m_IsOpen.load();
@@ -131,9 +74,34 @@ namespace local {
    ::WaitForSingleObject(m_hMain, INFINITE);
    SK_CLOSE_HANDLE(m_hMain);
 
-   skin::ISkin::DestoryInterface(m_pSkin);
+   SkinDestroy();
   } while (0);
  }
+ IControlUI* Wxui::CreateControl(const ControlType& control_type) {
+  IControlUI* pControlUI = nullptr;
+  std::lock_guard<std::mutex>(*m_Mutex);
+  switch (control_type) {
+  case ControlType::Window: {
+   pControlUI = dynamic_cast<IControlUI*>(new Window(this));
+  }break;
+  case ControlType::Frame: {
+   pControlUI = dynamic_cast<IControlUI*>(new Frame());
+  }break;
+  case ControlType::VerticalLayout: {
+   pControlUI = dynamic_cast<IControlUI*>(new VerticalLayout());
+  }break;
+  case ControlType::HorizontalLayout: {
+   pControlUI = dynamic_cast<IControlUI*>(new HorizontalLayout());
+  }break;
+  case ControlType::Button: {
+   pControlUI = dynamic_cast<IControlUI*>(new Button());
+  }break;
+  default:
+   break;
+  }
+  return pControlUI;
+ }
+
 
  unsigned int __stdcall Wxui::MainThread(void* arg) {
   auto pArgTie = reinterpret_cast<std::tuple<Wxui*, HANDLE*>*>(arg);
@@ -144,7 +112,7 @@ namespace local {
   assert(pWxui && hCreateEvent);
 
   do {
-   auto app = new App(pWxui);
+   auto app = new IApp(pWxui);
    wxApp::SetInstance(app);
 
    if (false == wxEntryStart(__gpHinstance))
@@ -153,6 +121,7 @@ namespace local {
     break;
 
    pWxui->SkinGet()->Perform();
+   pWxui->SkinGet()->Render();
 
    void(::SetEvent(hCreateEvent));
    wxTheApp->OnRun();

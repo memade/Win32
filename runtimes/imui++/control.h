@@ -3,64 +3,83 @@
 
 namespace local {
 
- class ICtrl {
+ class Control : public skin::IControlUI {
  public:
-  ICtrl(skin::INodeRender*);
-  ~ICtrl();
- public:
-  virtual void Release() const = 0;
-  virtual void Begin() = 0;
-  virtual void End() = 0;
-  virtual skin::INodeRender* Node() const;
-  virtual void OnLayout() const;
+  Control();
+  virtual ~Control();
  protected:
-  skin::INodeRender* node_ = nullptr;
-  bool flag_open_ = true;
+  virtual void PopStyle();
+  virtual void PushStyleCol(const ImGuiCol_&,const Vec4&);
+  virtual void PushStyleVar(const ImGuiStyleVar&, const Vec2&);
+  virtual void PushStyleVar(const ImGuiStyleVar&, const TypePixels&);
+  void OnLayout() override {}
+  Vec2 GetSize() const override { return Vec2(); }
+ protected:
+  HICON logo_icon_ = nullptr;
+  bool show_flags_ = false;
+  std::atomic_ulong  pop_style_var_ = 0;
+  std::atomic_ulong  pop_style_color_ = 0;
  };
 
- class Window final : public ICtrl {
+#if IMGUI_GLUT_OPENGL2
+ class Window final : public Control, public OpenGL2GlutDrive {
+#elif IMGUI_GLFW_OPENGL2
+ class Window final : public Control, public OpenGL2GlfwDrive {
+#elif IMGUI_GLFW_OPENGL3
+ class Window final : public Control, public OpenGL3GlfwDrive {
+#elif IMGUI_WIN32_DIRECTX9
+ class Window final : public Control, public Directx9Drive {
+#elif IMGUI_WIN32_DIRECTX10
+ class Window final : public Control, public Directx10Drive {
+#elif IMGUI_WIN32_DIRECTX11
+ class Window final : public Control, public Directx11Drive {
+#elif IMGUI_WIN32_DIRECTX12
+ class Window final : public Control, public Directx12Drive {
+#endif
  public:
-  Window(skin::INodeRender*);
+  Window(const IDearImGui*);
   virtual ~Window();
   void Release() const override final;
-  void Begin() override final;
-  void End() override final;
+  void OnRenderBegin() override final;
+  void OnRenderEnd() override final;
+ protected:
+  Vec2 GetSize() const override final;
  };
 
- class Font final : public ICtrl {
+ class Frame final : public Control {
  public:
-  Font(skin::INodeRender*);
-  virtual ~Font();
-  void Release() const override final;
-  void Begin() override final;
-  void End() override final;
- };
-
- class Frame final : public ICtrl {
- public:
-  Frame(skin::INodeRender*);
+  Frame();
   virtual ~Frame();
   void Release() const override final;
-  void Begin() override final;
-  void End() override final;
+  void OnRenderBegin() override final;
+  void OnRenderEnd() override final;
  };
 
- class VerticalLayout final : public ICtrl {
+ class VerticalLayout final : public Control {
  public:
-  VerticalLayout(skin::INodeRender*);
+  VerticalLayout();
   virtual ~VerticalLayout();
   void Release() const override final;
-  void Begin() override final;
-  void End() override final;
+  void OnRenderBegin() override final;
+  void OnRenderEnd() override final;
  };
 
- class HorizontalLayout final : public ICtrl {
+ class HorizontalLayout final : public Control {
  public:
-  HorizontalLayout(skin::INodeRender*);
+  HorizontalLayout();
   virtual ~HorizontalLayout();
   void Release() const override final;
-  void Begin() override final;
-  void End() override final;
+  void OnRenderBegin() override final;
+  void OnRenderEnd() override final;
+ };
+
+ class Button final : public Control {
+ public:
+  Button();
+  virtual ~Button();
+  void Release() const override final;
+  void OnRenderBegin() override final;
+  void OnRenderEnd() override final;
  };
 
 }///namespace local

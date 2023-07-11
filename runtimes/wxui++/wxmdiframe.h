@@ -3,9 +3,9 @@
 
 namespace local {
 
- class MDIFrame final : public wxMDIParentFrame, public IFrame {
+ class IMDIFrame final : public wxMDIParentFrame {
  public:
-  MDIFrame(
+  IMDIFrame(
    const IWxui* host,
    wxWindow* parent = nullptr,
    wxWindowID id = wxID_ANY,
@@ -14,13 +14,7 @@ namespace local {
    const wxSize& size = wxDefaultSize,
    long style = wxDEFAULT_FRAME_STYLE /*| wxFRAME_NO_WINDOW_MENU*/ /*wxVSCROLL | wxHSCROLL*/,
    const wxString& name = wxASCII_STR(wxFrameNameStr));
-  virtual ~MDIFrame();
- protected:
-  void Show(const bool&) override final;
-  void Size(const ISize*) override final;
-  void Pos(const IPos*) override final;
-  void Align(const IAlign*) override final;
-  void* Handle() const override final;
+  virtual ~IMDIFrame();
  private:
   void OnCloseWindow(wxCloseEvent& wxEvent);
   void OnSize(wxSizeEvent& wxEvent);

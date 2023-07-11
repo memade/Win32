@@ -3,31 +3,20 @@
 
 namespace local {
 
- class App
-  : public wxApp
-  , public IApp {
+ class IApp
+  : public wxApp {
   friend class Wxui;
  public:
-  App(Wxui*);
-  virtual ~App();
+  IApp(Wxui*);
+  virtual ~IApp();
  protected:
   int OnExit() override final;
   bool OnInit() override final;
  public:
   Wxui* WxuiGet() const;
  protected:
-  void RegisterOnAppInitCb(const tfOnAppInitCb&) override final;
-  void RegisterOnAppUninitCb(const tfOnAppUninitCb&) override final;
-  void RegisterOnAppCreateFrameCb(const tfOnAppCreateFrameCb&) override final;
- protected:
   Wxui* m_pWxui = nullptr;
-  tfOnAppInitCb m_OnAppInitCb = nullptr;
-  tfOnAppUninitCb m_OnAppUninitCb = nullptr;
-  tfOnAppCreateFrameCb m_OnAppCreateFrameCb = nullptr;
  private:
-  void OnAppInit(const bool& result) const;
-  void OnAppUninit(const int& exit_code) const;
-  void OnAppCreateFrame(IFrame* frame) const;
   void OnAppDestory(wxThreadEvent& event);
  };
 

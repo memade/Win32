@@ -7,6 +7,7 @@ namespace local {
  public:
   Config();
   virtual ~Config();
+  void Release() const;
  private:
   void Init();
   void UnInit();
@@ -23,7 +24,6 @@ namespace local {
  private:
   bool m_bMainWindowInitialShow = false;
   bool m_EnableChildWindowExclusiveMode = false;
-  FrameType m_FrameType = FrameType::FRAME_SDI;
   std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();
   std::string m_RequesUrl;
  };

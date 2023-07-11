@@ -3,59 +3,20 @@
 
 namespace local {
 
- class Resources : public IResources {
+ class Resources final : public IResources {
+  std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();
  public:
-  Resources(const ResourcesType&);
+  Resources();
   virtual ~Resources();
  public:
-  void Release() const override;
-  const ResourcesType& Type() const override;
-  const char* Path() const override;
-  const char* Pathname() const override;
-  void Cache(const tfCacheCb&) const override;
-  void Path(const char*) override;
-  void Pathname(const char*) override;
-  void Cache(const char*, const size_t&) override;
-  bool Load() override;
- public:
-  const std::string& Cache() const;
- protected:
-  std::string path_;
-  std::string pathname_;
-  std::string cache_;
-  const ResourcesType type_;
+  void Release() const override final;
+  void Push(IResource*) override final;
+  void Pop(const TypeIdentify&) override final;
+  void Clear() override final;
+  IResource* Search(const TypeIdentify&) const override final;
+ private:
+  std::map<TypeIdentify, IResource*> resources_;
  };
-
- class ResourcesConfigXml final : public Resources {
- public:
-  ResourcesConfigXml();
-  virtual ~ResourcesConfigXml();
- };
-
- class ResourcesConfigJson final : public Resources {
- public:
-  ResourcesConfigJson();
-  virtual ~ResourcesConfigJson();
- };
-
- class ResourcesImageIcon final : public Resources {
- public:
-  ResourcesImageIcon();
-  virtual ~ResourcesImageIcon();
- };
-
- class ResourcesFontTTF final : public Resources {
- public:
-  ResourcesFontTTF();
-  virtual ~ResourcesFontTTF();
- };
-
- class ResourcesFontTTC final : public Resources {
- public:
-  ResourcesFontTTC();
-  virtual ~ResourcesFontTTC();
- };
-
 
 }///namespace local
 

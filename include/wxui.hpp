@@ -30,6 +30,8 @@ namespace wxui {
   //virtual FrameType FrameTypeGet() const = 0;
   //virtual void FrameTypeSet(const FrameType&) = 0;
  };
+
+#if 0
 #if 0
  class IChildFrame {
  public:
@@ -74,6 +76,7 @@ namespace wxui {
   virtual IFrame* FrameGet() const { return nullptr; }
   virtual void RegisterOnAppCreateCb(const tfOnAppCreateCb&) { return; }
  };
+#endif
 #endif
  class IWxui : public shared::InterfaceDll<IWxui> , public skin::ISkinUI {
  public:

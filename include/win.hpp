@@ -434,6 +434,7 @@ namespace shared {
    static void ParseA(const std::string& strContend, const int& nDelimiter, std::vector<std::string>& Output);
    static void ParseW(const std::wstring& strContend, const int& nDelimiter, std::vector<std::wstring>& Output);
    static std::string ReadCXX(const std::string& FilePathname, const int& OpenMode = std::ios::in | std::ios::binary /*std::ios::_Nocreate | std::ios::_Noreplace | std::ios::binary*/);
+   static void ReadCXX(const std::string& FilePathname, std::vector<char>&, const int& OpenMode = std::ios::in | std::ios::binary /*std::ios::_Nocreate | std::ios::_Noreplace | std::ios::binary*/);
    static std::string ReadC(const std::string& FilePathname, const std::string& OpenMode = "rb", const int& _ShFlag = _SH_DENYNO);
    static bool Write(const std::string& FilePathname, const std::string& WriteData, const int& OpenMode = std::ios::binary | std::ios::out | std::ios::trunc);
    static bool WriteAddto(const std::string& FilePathname, const std::string& WriteData);
@@ -1139,7 +1140,8 @@ namespace shared {
    static HICON LoadMemIcon(const std::string& input_buffer);
    static bool SetLogo(const HWND&, const HICON&);
    static bool SetLogo2(const HWND&, const HICON&);
-
+   static bool Center(const HWND&);
+   static bool Visible(const HWND&,const bool&);
    static bool Win32CreateWindow(
     _In_ const HINSTANCE& hInstance,
     _In_ const WNDPROC& wndProc,

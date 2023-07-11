@@ -13,11 +13,13 @@ namespace local {
  void Config::Init() {
   m_EnableChildWindowExclusiveMode = true;
   m_bMainWindowInitialShow = true;
-  m_FrameType = FrameType::FRAME_MDI;
  }
 
  void Config::UnInit() {
 
+ }
+ void Config::Release() const {
+  delete this;
  }
  void Config::RequestUrl(const char* url) {
   std::lock_guard<std::mutex> lock{*m_Mutex};

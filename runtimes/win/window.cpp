@@ -63,6 +63,49 @@ namespace shared {
   } while (0);
   return result;
  }
+ bool Win::Window::Visible(const HWND& hWnd,const bool& visible) {
+  bool result = false;
+  do {
+   if (!hWnd)
+    break;
+   DWORD style = ::GetWindowLongW(hWnd, GWL_STYLE);
+   const bool current_visible_status = style & WS_VISIBLE;
+   if (visible && !current_visible_status) {
+    ::SetWindowLongW(hWnd, GWL_STYLE, style | WS_VISIBLE);
+    break;
+   }
+   if (!visible && current_visible_status) {
+    style &= ~WS_VISIBLE;
+    ::SetWindowLongW(hWnd, GWL_STYLE, style);
+    break;
+   }
+
+   result = true;
+  } while (0);
+  return result;
+ }
+ bool Win::Window::Center(const HWND& hWnd) {
+  bool result = false;
+  do {
+   if (!hWnd)
+    break;
+   RECT rtWindow;
+   ::GetWindowRect(hWnd, &rtWindow);
+   // 获取屏幕尺寸
+   int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+   int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+   // 计算窗口位置
+   int windowWidth = rtWindow.right - rtWindow.left;
+   int windowHeight = rtWindow.bottom - rtWindow.top;
+   int windowX = (screenWidth - windowWidth) / 2;
+   int windowY = (screenHeight - windowHeight) / 2;
+   // 移动窗口到屏幕中心
+   if (FALSE == ::SetWindowPos(hWnd, NULL, windowX, windowY, windowWidth, windowHeight, SWP_NOACTIVATE))
+    break;
+   result = true;
+  } while (0);
+  return result;
+ }
  bool Win::Window::SetLogo(const HWND& hWnd, const HICON& hIcon) {
   bool result = false;
   do {

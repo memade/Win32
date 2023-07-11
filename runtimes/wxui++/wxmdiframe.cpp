@@ -2,7 +2,7 @@
 
 namespace local {
 
- MDIFrame::MDIFrame(
+ IMDIFrame::IMDIFrame(
   const IWxui* host,
   wxWindow* parent,
   wxWindowID id,
@@ -14,38 +14,19 @@ namespace local {
   : wxMDIParentFrame(parent, id, title, pos, size, style, name)
   , host_(host) {
 
-  Bind(wxEVT_SIZE, &MDIFrame::OnSize, this);
-  Bind(wxEVT_CLOSE_WINDOW, &MDIFrame::OnCloseWindow, this);
+  Bind(wxEVT_SIZE, &IMDIFrame::OnSize, this);
+  Bind(wxEVT_CLOSE_WINDOW, &IMDIFrame::OnCloseWindow, this);
  }
 
- MDIFrame::~MDIFrame() {
+ IMDIFrame::~IMDIFrame() {
 
-  Unbind(wxEVT_SIZE, &MDIFrame::OnSize, this);
-  Unbind(wxEVT_CLOSE_WINDOW, &MDIFrame::OnCloseWindow, this);
+  Unbind(wxEVT_SIZE, &IMDIFrame::OnSize, this);
+  Unbind(wxEVT_CLOSE_WINDOW, &IMDIFrame::OnCloseWindow, this);
  }
- void MDIFrame::OnCloseWindow(wxCloseEvent& wxEvent) {
+ void IMDIFrame::OnCloseWindow(wxCloseEvent& wxEvent) {
   wxEvent.Skip();
  }
- void MDIFrame::OnSize(wxSizeEvent& wxEvent) {
+ void IMDIFrame::OnSize(wxSizeEvent& wxEvent) {
   wxEvent.Skip();
- }
- void MDIFrame::Show(const bool& show) {
-  wxMDIParentFrame::Show(show);
- }
- void MDIFrame::Size(const ISize* size) {
-  if (size)
-   wxMDIParentFrame::SetSize(wxSize(size->width(), size->height()));
- }
- void MDIFrame::Pos(const IPos* pos) {
-  if (pos)
-   wxMDIParentFrame::SetPosition(wxPoint(pos->x(), pos->y()));
- }
- void MDIFrame::Align(const IAlign* align) {
-  if (align)
-   if (align->type() == AlignType::CENTER)
-    wxMDIParentFrame::Center();
- }
- void* MDIFrame::Handle() const {
-  return reinterpret_cast<void*>(const_cast<wxWindow*>(dynamic_cast<const wxWindow*>(this)));
  }
 }///namespace local

@@ -17,18 +17,17 @@ typedef struct tagFrameContext
 }FrameContext;
 namespace local {
 
- class Directx12Drive final : public IDrive {
+ class Directx12Drive : public IDrive {
  public:
-  Directx12Drive(const IDearImGui*);
+  Directx12Drive(const IDearImGui*, const Control*);
   virtual ~Directx12Drive();
  public:
-  bool Start() override final;
-  void Stop() override final;
-  void Release() const override final;
-  void Process() override final;
+  void Release() const override;
+  void Process() override;
+ protected:
+  bool Create() override;
+  void Destroy() override;
  private:
-  WNDCLASSEXW m_WndClassEx = { 0 };
-  std::atomic_bool m_IsOpen = false;
   UINT m_nFrameIndex = 0;
   UINT64 m_nFenceLastSignaledValue = 0;
   ID3D12Device* m_pD3D12Device = nullptr;

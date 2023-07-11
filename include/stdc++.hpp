@@ -19,6 +19,7 @@
 #include <random>
 #if _HAS_CXX17
 #include <codecvt>
+#include <variant>
 #include <filesystem>
 #endif
 #if _HAS_CXX20/*_MSVC_LANG>201703L*/
