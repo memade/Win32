@@ -3,56 +3,105 @@
 
 namespace shared {
 
- template<typename TRuleType, typename TRuleStringType = std::wstring, typename CmdLineStringType = std::wstring>
- class CmdLine final {
- public:
-  CmdLine(const std::map<TRuleType, TRuleStringType>& input_rule_map,
-   const CmdLineStringType& input_cmd_string,
-   const bool& bEncryption)
-   : rule_map_(input_rule_map)
-   , cmd_string_(input_cmd_string)
-   , m_bEncryption(bEncryption) {
-   Init();
-  }
-  ~CmdLine() {
-   UnInit();
-  }
-  void Release() const { delete this; }
- public:
-  CmdLineStringType GetValue(const TRuleType& key) const {
-   CmdLineStringType result;
-   std::lock_guard<std::mutex> lock{*m_Mutex};
-   do {
-    auto found = rule_map_.find(key);
-    if (found == rule_map_.end())
-     break;
-    auto found_node = parser_cmd_map_.find(found->second);
-    if (found_node == parser_cmd_map_.end())
-     break;
-    result = found_node->second;
-   } while (0);
-   return result;
-  }
- protected:
-  const bool m_bEncryption = false;
-  std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();
-  inline void Init();
-  inline void UnInit();
-  std::map<CmdLineStringType, CmdLineStringType> parser_cmd_map_;
-  const CmdLineStringType cmd_string_;
-  const std::map<TRuleType, TRuleStringType> rule_map_;
+ enum class CmdLineRuleType : unsigned long {
+  Default = 0x00000000,
+  Parent = 0x00000001,
+  Identify = 0x00000002,
+  MemadePrivatePacket = 0x00000003,
+
+  Begin = Default,
+  End = MemadePrivatePacket,
  };
 
+ static /*const*/ std::map<CmdLineRuleType, std::wstring> CmdLineRuleString = {
+ {CmdLineRuleType::MemadePrivatePacket,L"--memade-private-packet"},
+ {CmdLineRuleType::Parent,L"--parent"},
+ {CmdLineRuleType::Identify,L"--identify"},
+ };
 
+ template<typename TRuleType>
+ class CmdLine final {
+ public:
+  inline CmdLine(
+   const std::map<TRuleType, std::wstring>& input_rule_map,
+   const bool& bEncryption);
+  inline void operator<<(const std::wstring&);
+ private:
+  inline ~CmdLine();
+  inline void Parser(const std::wstring&, std::map<std::wstring, std::wstring>&) const;
+ public:
+  inline void Release() const;
+  inline std::wstring GetValue(const TRuleType&) const;
+ protected:
+  const bool m_bEncryption;
+  std::map<std::wstring, std::wstring> parser_cmd_map_;
+  std::map<TRuleType, std::wstring> rule_map_;
+  std::shared_ptr<std::mutex> m_Mutex = std::make_shared<std::mutex>();
+ };
 
- template<typename TRuleType, typename TRuleStringType, typename CmdLineStringType>
- inline void CmdLine<TRuleType, TRuleStringType, CmdLineStringType>::Init() {
+ template<typename TRuleType>
+ inline void CmdLine<TRuleType>::operator<<(const std::wstring& input_cmdline_string) {
+  std::lock_guard<std::mutex>(*m_Mutex);
   do {
-   if (cmd_string_.empty())
+   if (input_cmdline_string.empty())
+    break;
+   std::wstring final_cmdline_string = input_cmdline_string;
+   Parser(input_cmdline_string, parser_cmd_map_);
+   if (parser_cmd_map_.empty())
+    break;
+   if (m_bEncryption) {
+    std::string decode_cmdline_string = shared::Win::Encryption::base64_decode(\
+     shared::IConv::WStringToMBytes(\
+      parser_cmd_map_[CmdLineRuleString[CmdLineRuleType::MemadePrivatePacket]]));
+    final_cmdline_string = shared::IConv::MBytesToWString(decode_cmdline_string);
+   }
+   Parser(final_cmdline_string, parser_cmd_map_);
+  } while (0);
+ }
+
+ template<typename TRuleType>
+ inline CmdLine<TRuleType>::CmdLine(
+  const std::map<TRuleType, std::wstring>& input_rule_map,
+  const bool& bEncryption)
+  : rule_map_(input_rule_map)
+  , m_bEncryption(bEncryption) {
+
+ }
+
+ template<typename TRuleType>
+ inline CmdLine<TRuleType>::~CmdLine() {
+
+ }
+
+ template<typename TRuleType>
+ inline void CmdLine<TRuleType>::Release() const { delete this; }
+
+ template<typename TRuleType>
+ inline std::wstring CmdLine<TRuleType>::GetValue(const TRuleType& key) const {
+  std::wstring result;
+  std::lock_guard<std::mutex>(*m_Mutex);
+  do {
+   auto found = rule_map_.find(key);
+   if (found == rule_map_.end())
+    break;
+   auto found_node = parser_cmd_map_.find(found->second);
+   if (found_node == parser_cmd_map_.end())
+    break;
+   result = found_node->second;
+  } while (0);
+  return result;
+ }
+
+ template<typename TRuleType>
+ inline void CmdLine<TRuleType>::Parser(\
+  const std::wstring& input_cmd_string, std::map<std::wstring, std::wstring>& out_cmd_parser_map) const {
+  out_cmd_parser_map.clear();
+  do {
+   if (input_cmd_string.empty())
     break;
    int nArgs = 0;
    LPWSTR* pArgs = nullptr;
-   pArgs = ::CommandLineToArgvW(cmd_string_.c_str(), &nArgs);
+   pArgs = ::CommandLineToArgvW(input_cmd_string.c_str(), &nArgs);
    if (!*pArgs)
     break;
    for (int i = 0; i < nArgs; i++) {
@@ -63,32 +112,18 @@ namespace shared {
      else
       ++it;
     }
-
-    if (i == 0 && shared::Win::AccessW(arg)) {
-     /*parser_cmd_map_.emplace(rule_map_[CmdTag::IMAGE_PATHNAME], arg);*/
+    /*
+    This is the default command line parameter of the Windows system, which is generally the full path name of the current executable file*/
+    if (i == 0 && shared::Win::AccessW(arg))
      continue;
-    }
     std::vector<std::wstring> spilts = shared::Win::StringSpiltW(arg, L"=");
     if (spilts.empty())
      continue;
-    parser_cmd_map_.emplace(spilts[0], spilts.size() > 1 ? spilts[1] : L"");
+    out_cmd_parser_map.emplace(spilts[0], spilts.size() > 1 ? spilts[1] : L"");
    }
-
-#if 0
-   auto found_image_pathname = parser_cmd_map_.find(rule_map_[CmdTag::IMAGE_PATHNAME]);
-   if (found_image_pathname == parser_cmd_map_.end()) {
-    parser_cmd_map_.emplace(rule_map_[CmdTag::IMAGE_PATHNAME], shared::Win::GetModulePathnameW());
-   }
-
-   auto found_type = parser_cmd_map_.find(rule_map_[CmdTag::TYPE]);
-   if (found_type == parser_cmd_map_.end()) {
-    parser_cmd_map_.emplace(rule_map_[CmdTag::TYPE], L"1");
-   }
-#endif
 
    //!@ Clearup
-   for (auto it = parser_cmd_map_.begin(); it != parser_cmd_map_.end();) {
-
+   for (auto it = out_cmd_parser_map.begin(); it != out_cmd_parser_map.end();) {
     bool exists = false;
     for (const auto& node : rule_map_) {
      if (node.second.compare(it->first) == 0) {
@@ -97,45 +132,17 @@ namespace shared {
      }
     }
     if (!exists)
-     it = parser_cmd_map_.erase(it);
+     it = out_cmd_parser_map.erase(it);
     else
      ++it;
    }
-
   } while (0);
  }
 
- template<typename TRuleType, typename TRuleStringType, typename CmdLineStringType>
- inline void CmdLine<TRuleType, TRuleStringType, CmdLineStringType>::UnInit() {
-  parser_cmd_map_.clear();
- }
 
-#if 0
- inline std::wstring Cmdline::GetValue(const CmdTag& tag) const {
-  std::wstring result;
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  do {
-   if (tag<CmdTag::BEGIN || tag>CmdTag::END)
-    break;
-   auto found = parser_cmd_map_.find(CmdTagString[tag]);
-   if (found == parser_cmd_map_.end())
-    break;
-   result = found->second;
-  } while (0);
-  return result;
- }
- inline std::wstring Cmdline::GetValue(const std::wstring& key) const {
-  std::wstring result;
-  std::lock_guard<std::mutex> lock{*m_Mutex};
-  do {
-   auto found = parser_cmd_map_.find(key);
-   if (found == parser_cmd_map_.end())
-    break;
-   result = found->second;
-  } while (0);
-  return result;
- }
-#endif
+
+
+ using TypeCmdLine = CmdLine<CmdLineRuleType>;
 }///namespace shared
 
 

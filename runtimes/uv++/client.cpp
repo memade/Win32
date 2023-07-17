@@ -44,8 +44,8 @@ namespace local {
   do {
    if (m_IsOpen.load())
     break;
-   if (m_pConfig->EnableClientWaitForTheInitialConnectionAndReceiveResult())
-    m_hFirstLogicalEvent = ::CreateEventW(NULL, TRUE, FALSE, NULL);
+   /*if (m_pConfig->EnableClientWaitForTheInitialConnectionAndReceiveResult())
+    m_hFirstLogicalEvent = ::CreateEventW(NULL, TRUE, FALSE, NULL);*/
 
    m_IsOpen.store(true);
    if (0 != uv_thread_create(&thread_main_, MainProcess, this)) {
@@ -56,8 +56,8 @@ namespace local {
    if (!m_IsOpen.load())
     break;
 
-   if (m_hFirstLogicalEvent)
-    ::WaitForSingleObject(m_hFirstLogicalEvent, INFINITE);
+   /*if (m_hFirstLogicalEvent)
+    ::WaitForSingleObject(m_hFirstLogicalEvent, INFINITE);*/
 
   } while (0);
   return m_IsOpen.load();
@@ -66,11 +66,11 @@ namespace local {
   do {
    if (!m_IsOpen.load())
     break;
-   if (m_hFirstLogicalEvent) {
+   /*if (m_hFirstLogicalEvent) {
     ::SetEvent(m_hFirstLogicalEvent);
     ::WaitForSingleObject(m_hFirstLogicalEvent, INFINITE);
    }
-   SK_CLOSE_HANDLE(m_hFirstLogicalEvent);
+   SK_CLOSE_HANDLE(m_hFirstLogicalEvent);*/
    m_IsOpen.store(false);
    uv_thread_join(&thread_main_);
   } while (0);
@@ -86,13 +86,13 @@ namespace local {
   } while (0);
   return result;
  }
- void Client::NotifyFirstLogicalEvent() {
+ /*void Client::NotifyFirstLogicalEvent() {
   std::lock_guard<std::mutex> lock{*m_Mutex};
   if (m_hFirstLogicalEvent && !m_FirstLogicalEventTriggerFlag.load()) {
    ::SetEvent(m_hFirstLogicalEvent);
    m_FirstLogicalEventTriggerFlag.store(true);
   }
- }
+ }*/
  ServerStatus Client::Status() const {
   return m_ServerStatus;
  }
@@ -327,7 +327,7 @@ namespace local {
       break;
      }
      //!@ 等待第一次接收处理完成
-     pClient->NotifyFirstLogicalEvent();
+     /*pClient->NotifyFirstLogicalEvent();*/
     } while (0);
 
    }
@@ -427,7 +427,7 @@ namespace local {
     break;
    if (status < 0) {
     pClient->OnDisconnection(pSession);
-    pClient->NotifyFirstLogicalEvent();
+    /*pClient->NotifyFirstLogicalEvent();*/
     break;
    }
    if (0 != uv_read_start(reinterpret_cast<uv_stream_t*>(pSession->Handle()), Protocol::uv_alloc_cb, uv_read_cb))

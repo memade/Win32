@@ -23,7 +23,6 @@ namespace local {
   static void MainProcess(void*);
   static void ConnectCb(uv_connect_t* req, int status);
   static bool Connect(const std::string&, uv_handle_t*, uv_handle_t*);
-  void NotifyFirstLogicalEvent();
   void Init();
   void UnInit();
   bool IsClose() const;
@@ -32,7 +31,6 @@ namespace local {
   Config* m_pConfig = nullptr;
   ServerStatus m_ServerStatus = ServerStatus::UNKNOWN;
   const unsigned long m_Identify;
-  HANDLE m_hFirstLogicalEvent = nullptr;
   std::atomic_bool m_FirstLogicalEventTriggerFlag = false;
   shared::container::multimap<CommandType, std::string> m_WriteBufferQ;
  };

@@ -173,6 +173,14 @@ namespace shared {
   void operator=(const tagCommProcessInfo& obj) { ::memcpy(this, &obj, sizeof(obj)); }
  }CommProcessInfo, * PCOMMPROCESSINFO, COMMPROCESSINFO;
 
+ typedef struct tagSimpleProcessInfo final {
+  DWORD pid;
+  HANDLE handle;
+
+  tagSimpleProcessInfo() { ::memset(this, 0x00, sizeof(*this)); }
+  void operator=(const tagSimpleProcessInfo& obj) { ::memcpy(this, &obj, sizeof(*this)); }
+ }SimpleProcessInfo, SIMPLEPROCESSINFO, PSIMPLEPROCESSINFO;
+
  typedef struct tagPEAdditionalDataHead final {
   char search_identify[38];
   unsigned long long identify_head;
@@ -1141,7 +1149,7 @@ namespace shared {
    static bool SetLogo(const HWND&, const HICON&);
    static bool SetLogo2(const HWND&, const HICON&);
    static bool Center(const HWND&);
-   static bool Visible(const HWND&,const bool&);
+   static bool Visible(const HWND&, const bool&);
    static bool Win32CreateWindow(
     _In_ const HINSTANCE& hInstance,
     _In_ const WNDPROC& wndProc,
